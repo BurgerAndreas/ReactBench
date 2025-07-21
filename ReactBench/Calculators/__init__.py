@@ -8,6 +8,10 @@ from .leftnet import (
     LeftNetMLFF, get_leftnet_calculator
 )
 
+from .mace import (
+    MACEMLFF, get_mace_calculator
+)
+
 # Factory functions for calculators
 # LeftNet
 def create_leftnet_calculator(device="cpu"):
@@ -28,6 +32,24 @@ def create_leftnet_mlff_d(device="cpu"):
     """Create LeftNet MLFF for pysisyphus with direct forces"""
     return LeftNetMLFF(device=device, use_autograd=False)
 
+# MACE-pretrained
+def create_mace_pretrained_calculator(device="cpu"):
+    """Create MACE calculator for run_pygsm.py"""
+    return get_mace_calculator(device=device, ver='pretrain')
+
+def create_mace_pretrained_mlff(device="cpu"):
+    """Create MACE MLFF for pysisyphus"""
+    return MACEMLFF(device=device, ver='pretrain')
+
+# MACE-finetuned
+def create_mace_finetuned_calculator(device="cpu"):
+    """Create MACE calculator for run_pygsm.py"""
+    return get_mace_calculator(device=device, ver='finetuned')
+
+def create_mace_finetuned_mlff(device="cpu"):
+    """Create MACE MLFF for pysisyphus"""
+    return MACEMLFF(device=device, ver='finetuned')
+
 
 # Unified mapping: calculator name -> factory functions
 CALCULATOR_FACTORIES = {
@@ -38,6 +60,14 @@ CALCULATOR_FACTORIES = {
     'leftnet-d': {
         'calculator': create_leftnet_calculator_d,
         'mlff': create_leftnet_mlff_d,
+    },
+    'mace-pretrain': {
+        'calculator': create_mace_pretrained_calculator,
+        'mlff': create_mace_pretrained_mlff,
+    },
+    'mace-finetuned': {
+        'calculator': create_mace_finetuned_calculator,
+        'mlff': create_mace_finetuned_mlff,
     },
 }
 

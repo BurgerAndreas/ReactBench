@@ -23,6 +23,7 @@ ReactBench/
     ├── Calculators/           # MLIP calculator implementations
     │   ├── __init__.py        
     │   ├── leftnet.py         # LeftNet calculator.
+    │   ├── mace.py            # MACE calculator.    
     │   └── _utils.py          
     ├── utils/                  
     │   ├── __init__.py
@@ -33,6 +34,7 @@ ReactBench/
     │   └── run_pygsm.py       
     └── MLIP/                   
         └── leftnet/           # LeftNet MLIP implementation
+        └── mace/              # MACE MLIP implementation
 ```
 
 ## Getting Started
@@ -58,6 +60,10 @@ cd ReactBench/MLIP/leftnet/ # install leftnet env
 pip install -e .
 cd ../../..
 
+cd ReactBench/MLIP/mace/ # install mace env
+pip install -e .
+cd ../../..
+
 pip install -r environment.txt
 ```
 
@@ -65,11 +71,16 @@ pip install -r environment.txt
 
 ### Usage
 
-1. First, test if the environment is properly set up by running sample data with LEFTNet calculator:
+1. First, test if the environment is properly set up by running sample data with LEFTNet or MACE calculator:
 
 Download the LeftNet checkpoint from [hugging face](https://huggingface.co/yhong55/ReactBench/tree/main) and place it in the `ckpt` folder.
 
-run `python ReactBench main.py config.yaml`. 
+run
+```bash
+python ReactBench main.py config.yaml
+``` 
+
+calc can be: leftnet, leftnet-d, mace-pretrain, mace-finetuned
 
 
 2. To test other MLIPs, you can create your own calculator by following these steps:
