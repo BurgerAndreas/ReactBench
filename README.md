@@ -75,7 +75,29 @@ run `python ReactBench main.py config.yaml`.
 2. To test other MLIPs, you can create your own calculator by following these steps:
 
    a. Go to `ReactBench/Calculators` directory
+
    b. Use `leftnet` calculator as a reference implementation
+   
    c. Create a new calculator class for your MLIP of interest
+   
    d. Update `__init__.py` to register your new calculator
+   
    e. Modify the `calc` parameter in `config.yaml` to use your calculator
+
+
+### Citation
+
+```
+@article{https://doi.org/10.1002/advs.202506240,
+        author = {Zhao, Qiyuan and Han, Yunhong and Zhang, Duo and Wang, Jiaxu and Zhong, Peichen and Cui, Taoyong and Yin, Bangchen and Cao, Yirui and Jia, Haojun and Duan, Chenru},
+        title = {Harnessing Machine Learning to Enhance Transition State Search with Interatomic Potentials and Generative Models},
+        journal = {Advanced Science},
+        pages = {e06240},
+        doi = {https://doi.org/10.1002/advs.202506240}
+}
+```
+
+
+### License
+
+This project is licensed under the Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License (CC BY-NC-SA 4.0).
