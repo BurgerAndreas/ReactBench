@@ -18,6 +18,10 @@ multiplicity:  1     # system multiplicity (spin + 1)
 # - leftnet: LeftNet model with autograd (fine-tuned)
 # - leftnet-d: LeftNet model with direct forces (fine-tuned)
 calc:          mace-pretrain   # select from the available MLFF calculators, like: 
+ckpt_path: null
+config_path: null
+
+cleanup_results: true
 
 # input parameters for GSM
 gsm_restart:   True          # restart GSM jobs or not

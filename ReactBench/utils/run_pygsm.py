@@ -65,6 +65,27 @@ def parse_arguments(verbose=True):
         required=False,
     )
     parser.add_argument(
+        "-ckpt_path",
+        default="",
+        type=str,
+        help="path to the calculator",
+        required=False,
+    )
+    parser.add_argument(
+        "-config_path",
+        default="",
+        type=str,
+        help="path to the calculator config",
+        required=False,
+    )
+    parser.add_argument(
+        "-hessian_method",
+        default="autograd",
+        type=str,
+        help="method to compute hessian",
+        required=False,
+    )
+    parser.add_argument(
         "-ID",
         default=0,
         type=int,
@@ -219,6 +240,9 @@ def parse_arguments(verbose=True):
         "xyzfile": args.xyzfile,
         "info": args.info,
         "calc": args.calc,
+        "ckpt_path": args.ckpt_path,
+        "config_path": args.config_path,
+        "hessian_method": args.hessian_method,
         "coordinate_type": args.coordinate_type,
         "nproc": args.nproc,
         "device": getattr(args, "device", "cpu"),
@@ -278,6 +302,9 @@ def wrapper_de_gsm(
     restart_file=False,
     info=None,
     device="cpu",
+    ckpt_path=None,
+    config_path=None,
+    hessian_method=None,
 ):
     # PES
     # pes_type = "PES"
@@ -304,7 +331,11 @@ def wrapper_de_gsm(
     nifty.printcool("Parsed GSM")
 
     if calc.lower() in AVAILABLE_CALCULATORS:
-        calculator = get_calculator(calc.lower(), device=device)
+        kwargs = {}
+        for kwargname in ["ckpt_path", "config_path", "hessian_method"]:
+            if locals()[kwargname]:
+                kwargs[kwargname] = locals()[kwargname]
+        calculator = get_calculator(calc.lower(), device=device, **kwargs)
 
     else:
         raise ValueError(

@@ -16,6 +16,7 @@ except Exception as e:
     # print(e)
     # traceback.print_exc()
 
+from .equiformer import EquiformerMLFF, get_equiformer_calculator
 
 # Factory functions for calculators
 # LeftNet
@@ -62,6 +63,22 @@ def create_mace_finetuned_mlff(device="cpu"):
     return MACEMLFF(device=device, ver="finetuned")
 
 
+# Equiformer
+def create_equiformer_calculator(device="cpu"):
+    """Create Equiformer calculator for run_pygsm.py"""
+    try:
+        return get_equiformer_calculator(device=device)
+    except NameError:
+        raise ImportError("Equiformer calculator is not available. Please check dependencies.")
+
+
+def create_equiformer_mlff(device="cpu"):
+    """Create Equiformer MLFF for pysisyphus"""
+    try:
+        return EquiformerMLFF(device=device)
+    except NameError:
+        raise ImportError("Equiformer MLFF is not available. Please check dependencies.")
+
 # Unified mapping: calculator name -> factory functions
 CALCULATOR_FACTORIES = {
     "leftnet": {
@@ -80,13 +97,17 @@ CALCULATOR_FACTORIES = {
         "calculator": create_mace_finetuned_calculator,
         "mlff": create_mace_finetuned_mlff,
     },
+    "equiformer": {
+        "calculator": create_equiformer_calculator,
+        "mlff": create_equiformer_mlff,
+    },
 }
 
 # Available calculator names
 AVAILABLE_CALCULATORS = list(CALCULATOR_FACTORIES.keys())
 
 
-def get_calculator(calc_name, device="cpu"):
+def get_calculator(calc_name, device="cpu", **kwargs):
     """
     Get calculator instance by name (for run_pygsm.py)
 
@@ -106,10 +127,10 @@ def get_calculator(calc_name, device="cpu"):
             f"Unknown calculator: {calc_name}. Available: {AVAILABLE_CALCULATORS}"
         )
 
-    return CALCULATOR_FACTORIES[calc_name]["calculator"](device=device)
+    return CALCULATOR_FACTORIES[calc_name]["calculator"](device=device, **kwargs)
 
 
-def get_mlff(calc_name, device="cpu"):
+def get_mlff(calc_name, device="cpu", **kwargs):
     """
     Get MLFF instance by name (for pysisyphus)
 
@@ -129,7 +150,7 @@ def get_mlff(calc_name, device="cpu"):
             f"Unknown MLFF: {calc_name}. Available: {AVAILABLE_CALCULATORS}"
         )
 
-    return CALCULATOR_FACTORIES[calc_name]["mlff"](device=device)
+    return CALCULATOR_FACTORIES[calc_name]["mlff"](device=device, **kwargs)
 
 
 __all__ = [

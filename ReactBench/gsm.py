@@ -29,6 +29,10 @@ class PYGSM:
         python_exe="python",
         multiplicity=1,
         charge=0,
+        # Added Andreas
+        ckpt_path=None,
+        config_path=None,
+        hessian_method="autograd",
     ):
         """Initialize a pyGSM job class.
 
@@ -75,6 +79,11 @@ class PYGSM:
             f"OMP_NUM_THREADS={nprocs} {python_exe} {run_pygsm_path}",
             f"-xyzfile {input_geo}",
             f"-calc {calc}",
+            # Added Andreas
+            f"-ckpt_path {ckpt_path}",
+            f"-config_path {config_path}",
+            f"-hessian_method {hessian_method}",
+            # End Added Andreas
             f"-ID {jobid}",
             f"-num_nodes {num_nodes}",
             f"-nproc {nprocs}",
@@ -92,6 +101,7 @@ class PYGSM:
             cmd_parts.append("-product_geom_fixed")
 
         self.command = " ".join(cmd_parts)
+        # print("Command: \n", self.command)
 
     def prepare_job(self):
         """Prepare GSM job by setting up working directory and input files."""

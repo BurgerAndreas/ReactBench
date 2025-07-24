@@ -11,6 +11,6 @@ from pysisyphus.optimizers.RFOptimizer import RFOptimizer
 from gadff.horm.ff_lmdb import LmdbDataset
 from gadff.equiformer_torch_calculator import EquiformerTorchCalculator
 
-import leftnet
+import horm_leftnet
 
 print("Imported all necessary modules")

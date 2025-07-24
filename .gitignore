@@ -3,3 +3,6 @@ __pycache__/
 *.ckpt
 test*/
 dependencies/
+
+data/ts1x
+data/*

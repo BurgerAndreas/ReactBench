@@ -7,6 +7,7 @@ import yaml
 import logging
 import time
 import pyjokes
+import shutil
 
 import multiprocessing as mp
 from logging.handlers import QueueHandler
@@ -161,9 +162,9 @@ def main(args: dict):
     analyze_outputs(scratch, irc_jobs, logger, charge=charge)
     logger.info(f"All reaction information is stored in {scratch}/IRC-record.txt")
 
-    print("All calculations are done, wish you get desired outcome!\N{WINKING FACE}")
+    print("All calculations are done!")
     logger.info(
-        "All calculations are done, wish you get desired outcome!\N{WINKING FACE}"
+        "All calculations are done!"
     )
 
     print("\n=== Final Results ===")
@@ -216,6 +217,18 @@ def main(args: dict):
         with open(irc_record, "r") as f:
             intended_count = sum(line.count("Intended") for line in f)
         print(f"Number of intended reactions:          {intended_count}")
+
+    # Cleanup results if specified in config
+    if args.get("cleanup_results", False):
+        print(f"\nCleaning up results directory: {scratch}")
+        logger.info(f"Cleaning up results directory: {scratch}")
+        try:
+            shutil.rmtree(scratch)
+            print("Results cleanup completed successfully.")
+            logger.info("Results cleanup completed successfully.")
+        except Exception as e:
+            print(f"Warning: Failed to cleanup results directory: {e}")
+            logger.warning(f"Failed to cleanup results directory: {e}")
 
     return
 
