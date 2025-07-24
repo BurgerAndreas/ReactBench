@@ -95,7 +95,7 @@ class SingleDistributionNodes:
             prob.append(histogram[nodes])
         self.n_nodes = torch.tensor(self.n_nodes)
         prob = np.array(prob)
-        prob = prob/np.sum(prob)
+        prob = prob / np.sum(prob)
 
         self.prob = torch.from_numpy(prob).float()
 

@@ -44,14 +44,15 @@ ReactBench/
 ```bash
 git clone git@github.com:deepprinciple/ReactBench.git
 cd ReactBench
-conda create -n reactbench python=3.10
-conda activate reactbench
-conda install -y -c conda-forge openbabel
+mamba create -n reactbench python=3.10
+mamba activate reactbench
+mamba install -y -c conda-forge openbabel
 
 mkdir dependencies # install pysisyphus and pygsm
 cd dependencies && git clone git@github.com:deepprinciple/pysisyphus.git && cd pysisyphus && git checkout reactbench 
 pip install -e .
 cd ..
+
 git clone git@github.com:deepprinciple/pyGSM.git && cd pyGSM
 pip install -e .
 cd ../..
@@ -74,10 +75,15 @@ pip install -r environment.txt
 1. First, test if the environment is properly set up by running sample data with LEFTNet or MACE calculator:
 
 Download the LeftNet checkpoint from [hugging face](https://huggingface.co/yhong55/ReactBench/tree/main) and place it in the `ckpt` folder.
+```bash
+mkdir ckpt
+curl -L -o ckpt/leftnet-df.ckpt https://huggingface.co/yhong55/ReactBench/resolve/main/leftnet-df.ckpt 
+curl -L -o ckpt/leftnet.ckpt https://huggingface.co/yhong55/ReactBench/resolve/main/leftnet.ckpt
+```
 
 run
 ```bash
-python ReactBench main.py config.yaml
+python ReactBench/main.py config.yaml
 ``` 
 
 calc can be: leftnet, leftnet-d, mace-pretrain, mace-finetuned

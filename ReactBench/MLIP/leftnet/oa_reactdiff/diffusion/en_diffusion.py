@@ -4,7 +4,7 @@ import numpy as np
 import torch
 from torch import nn, Tensor
 import torch.nn.functional as F
-from torch_scatter import scatter_mean
+from ReactBench.utils.scatter_utils import scatter_mean
 
 from oa_reactdiff.dynamics import EGNNDynamics
 from oa_reactdiff.utils import (
@@ -51,7 +51,7 @@ class EnVariationalDiffusion(nn.Module):
         self.T = schdule.gamma_module.timesteps
         self.norm_values = normalizer.norm_values
         self.norm_biases = normalizer.norm_biases
-        
+
         self.pbc = pbc
 
     # ------ FORWARD PASS ------
@@ -134,7 +134,7 @@ class EnVariationalDiffusion(nn.Module):
             combined_mask=combined_mask,
             edge_attr=None,  # TODO: no edge_attr is considered now
             natoms=natoms,
-            pbc=self.pbc
+            pbc=self.pbc,
         )
 
         if return_pred:
@@ -145,8 +145,8 @@ class EnVariationalDiffusion(nn.Module):
         #                                           ligand['mask'])
         if self.pos_only:
             for ii in range(len(masks)):
-                net_eps_xh[ii][:, self.pos_dim:] = torch.zeros_like(
-                    net_eps_xh[ii][:, self.pos_dim:],
+                net_eps_xh[ii][:, self.pos_dim :] = torch.zeros_like(
+                    net_eps_xh[ii][:, self.pos_dim :],
                     device=device,
                 )
         # Compute the L2 error.
@@ -490,13 +490,11 @@ class EnVariationalDiffusion(nn.Module):
         n_frag_switch = get_n_frag_switch(fragments_nodes)
         natoms = torch.cat(fragments_nodes)
 
-        zt_xh = self.sample_combined_position_feature_noise(
-            masks=fragments_masks)
+        zt_xh = self.sample_combined_position_feature_noise(masks=fragments_masks)
         if self.pos_only:
             zt_xh = [
-                torch.cat([
-                    zt_xh[ii][:, : self.pos_dim], h0[ii]
-                ], dim=1) for ii in range(len(h0))
+                torch.cat([zt_xh[ii][:, : self.pos_dim], h0[ii]], dim=1)
+                for ii in range(len(h0))
             ]
 
         utils.assert_mean_zero_with_mask(
@@ -537,9 +535,8 @@ class EnVariationalDiffusion(nn.Module):
             )
             if self.pos_only:
                 zt_xh = [
-                    torch.cat([
-                        zt_xh[ii][:, : self.pos_dim], h0[ii]
-                    ], dim=1) for ii in range(len(h0))
+                    torch.cat([zt_xh[ii][:, : self.pos_dim], h0[ii]], dim=1)
+                    for ii in range(len(h0))
                 ]
 
             # save frame
@@ -557,7 +554,7 @@ class EnVariationalDiffusion(nn.Module):
             natoms=natoms,
         )
         if self.pos_only:
-            cat = [_h0[:, : -1] for _h0 in h0]
+            cat = [_h0[:, :-1] for _h0 in h0]
             charge = [_h0[:, -1:] for _h0 in h0]
         utils.assert_mean_zero_with_mask(
             torch.cat(
@@ -768,7 +765,7 @@ class EnVariationalDiffusion(nn.Module):
         n_frag_switch = get_n_frag_switch(fragments_nodes)
         natoms = torch.cat(fragments_nodes)
 
-        h0 = [_xh_fixed[:, self.pos_dim:].long() for _xh_fixed in xh_fixed]
+        h0 = [_xh_fixed[:, self.pos_dim :].long() for _xh_fixed in xh_fixed]
 
         for ii, _ in enumerate(xh_fixed):
             xh_fixed[ii][:, : self.pos_dim] = utils.remove_mean_batch(
@@ -783,13 +780,11 @@ class EnVariationalDiffusion(nn.Module):
             combined_mask,
         )
 
-        zt_xh = self.sample_combined_position_feature_noise(
-            masks=fragments_masks)
+        zt_xh = self.sample_combined_position_feature_noise(masks=fragments_masks)
         if self.pos_only:
             zt_xh = [
-                torch.cat([
-                    zt_xh[ii][:, : self.pos_dim], h0[ii]
-                ], dim=1) for ii in range(len(h0))
+                torch.cat([zt_xh[ii][:, : self.pos_dim], h0[ii]], dim=1)
+                for ii in range(len(h0))
             ]
 
         utils.assert_mean_zero_with_mask(
@@ -812,7 +807,9 @@ class EnVariationalDiffusion(nn.Module):
         s = timesteps - 1
         for i, n_denoise_steps in enumerate(schedule):
             for j in range(n_denoise_steps):
-                s_array = torch.full((n_samples, 1), fill_value=s, device=zt_xh[0].device)
+                s_array = torch.full(
+                    (n_samples, 1), fill_value=s, device=zt_xh[0].device
+                )
                 t_array = s_array + 1
                 s_array = s_array / timesteps
                 t_array = t_array / timesteps
@@ -838,14 +835,12 @@ class EnVariationalDiffusion(nn.Module):
 
                 if self.pos_only:
                     zt_known = [
-                        torch.cat([
-                            zt_known[ii][:, : self.pos_dim], h0[ii]
-                        ], dim=1) for ii in range(len(h0))
+                        torch.cat([zt_known[ii][:, : self.pos_dim], h0[ii]], dim=1)
+                        for ii in range(len(h0))
                     ]
                     zt_unknown = [
-                        torch.cat([
-                            zt_unknown[ii][:, : self.pos_dim], h0[ii]
-                        ], dim=1) for ii in range(len(h0))
+                        torch.cat([zt_unknown[ii][:, : self.pos_dim], h0[ii]], dim=1)
+                        for ii in range(len(h0))
                     ]
 
                 zt_xh = [
@@ -857,8 +852,9 @@ class EnVariationalDiffusion(nn.Module):
                 if j == n_denoise_steps - 1 and i < len(schedule) - 1:
                     # Go back jump_length steps
                     t = s + jump_length
-                    t_array = torch.full((n_samples, 1), fill_value=t,
-                                         device=zt_xh[0].device)
+                    t_array = torch.full(
+                        (n_samples, 1), fill_value=t, device=zt_xh[0].device
+                    )
                     t_array = t_array / timesteps
 
                     gamma_s = self.schedule.inflate_batch_array(
@@ -890,7 +886,7 @@ class EnVariationalDiffusion(nn.Module):
             natoms=natoms,
         )
         if self.pos_only:
-            cat = [_h0[:, : -1] for _h0 in h0]
+            cat = [_h0[:, :-1] for _h0 in h0]
             charge = [_h0[:, -1:] for _h0 in h0]
         utils.assert_mean_zero_with_mask(
             torch.cat(
@@ -1079,7 +1075,7 @@ class EnVariationalDiffusion(nn.Module):
         masks: List[Tensor],
         gamma_t: Tensor,
         gamma_s: Tensor,
-        fix_noise: bool = False
+        fix_noise: bool = False,
     ) -> List[Tensor]:
         (
             sigma2_t_given_s,
@@ -1087,12 +1083,10 @@ class EnVariationalDiffusion(nn.Module):
             alpha_t_given_s,
         ) = self.schedule.sigma_and_alpha_t_given_s(gamma_t, gamma_s, zs[0])
 
-        mu = [
-            alpha_t_given_s[masks[ii]] * zs[ii]
-            for ii in range(len(masks))
-        ]
+        mu = [alpha_t_given_s[masks[ii]] * zs[ii] for ii in range(len(masks))]
         zt = self.sample_normal(
-            mu=mu, sigma=sigma_t_given_s, masks=masks, fix_noise=fix_noise)
+            mu=mu, sigma=sigma_t_given_s, masks=masks, fix_noise=fix_noise
+        )
 
         for ii in range(len(masks)):
             zt[ii][:, : self.pos_dim] = utils.remove_mean_batch(

@@ -1,4 +1,5 @@
 """Base layers for model."""
+
 from typing import Tuple, Optional
 
 from torch import nn, Tensor

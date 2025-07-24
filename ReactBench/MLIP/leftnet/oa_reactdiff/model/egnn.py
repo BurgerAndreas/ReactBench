@@ -1,4 +1,5 @@
 """EGNN model"""
+
 from typing import Optional, Tuple
 
 import torch

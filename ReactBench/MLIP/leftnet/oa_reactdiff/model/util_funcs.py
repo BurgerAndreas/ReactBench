@@ -1,8 +1,9 @@
 """Utility functions for model"""
+
 import torch
 import numpy as np
 from torch import Tensor
-from torch_scatter import scatter, segment_coo, segment_csr
+from ReactBench.utils.scatter_utils import scatter, segment_coo, segment_csr
 
 
 def move_by_com(pos):
@@ -93,60 +94,60 @@ def get_pbc_distances(
     # correct for pbc
     neighbors = neighbors.to(cell.device)
     cell = torch.repeat_interleave(cell, neighbors, dim=0)
-    offsets = cell_offsets.float().view(-1, 1, 3).bmm(cell.float().to(device)).view(-1, 3)
+    offsets = (
+        cell_offsets.float().view(-1, 1, 3).bmm(cell.float().to(device)).view(-1, 3)
+    )
     distance_vectors += offsets
 
     # compute distances
     distances = distance_vectors.norm(dim=-1)
 
     # redundancy: remove zero distances
-    nonzero_idx = torch.arange(len(distances), device=distances.device)[
-        distances != 0
-    ]
+    nonzero_idx = torch.arange(len(distances), device=distances.device)[distances != 0]
     edge_index = edge_index[:, nonzero_idx]
     distances = distances[nonzero_idx]
     distance_vectors = distance_vectors[nonzero_idx]
     offsets = offsets[nonzero_idx]
-    
+
     if not out_cell_only:
         return edge_index, distances, distance_vectors, offsets
-    
+
     off_cell_idx = []
     for ii, _offset in enumerate(offsets):
         if torch.max(torch.abs(_offset)) > 1e-4:
             off_cell_idx.append(ii)
     off_cell_idx = torch.tensor(off_cell_idx).long()
-    
-    return edge_index.T[off_cell_idx].T, distances[off_cell_idx], distance_vectors[off_cell_idx], offsets[off_cell_idx]
+
+    return (
+        edge_index.T[off_cell_idx].T,
+        distances[off_cell_idx],
+        distance_vectors[off_cell_idx],
+        offsets[off_cell_idx],
+    )
 
 
 def radius_graph_pbc(
     pos,
     cell,
     natoms,
-    radius, 
+    radius,
     max_num_neighbors_threshold,
     pbc=[True, True, True],
-):  
+):
     r"""
     borrowed from ocp.
     """
     device = pos.device
     batch_size = len(natoms)
 
-
     # Before computing the pairwise distances between atoms, first create a list of atom indices to compare for the entire batch
     num_atoms_per_image = natoms
     num_atoms_per_image_sqr = (num_atoms_per_image**2).long()
 
     # index offset between images
-    index_offset = (
-        torch.cumsum(num_atoms_per_image, dim=0) - num_atoms_per_image
-    )
+    index_offset = torch.cumsum(num_atoms_per_image, dim=0) - num_atoms_per_image
 
-    index_offset_expand = torch.repeat_interleave(
-        index_offset, num_atoms_per_image_sqr
-    )
+    index_offset_expand = torch.repeat_interleave(index_offset, num_atoms_per_image_sqr)
     num_atoms_per_image_expand = torch.repeat_interleave(
         num_atoms_per_image, num_atoms_per_image_sqr
     )
@@ -163,20 +164,14 @@ def radius_graph_pbc(
     index_sqr_offset = torch.repeat_interleave(
         index_sqr_offset, num_atoms_per_image_sqr
     )
-    atom_count_sqr = (
-        torch.arange(num_atom_pairs, device=device) - index_sqr_offset
-    )
+    atom_count_sqr = torch.arange(num_atom_pairs, device=device) - index_sqr_offset
 
     # Compute the indices for the pairs of atoms (using division and mod)
     # If the systems get too large this apporach could run into numerical precision issues
     index1 = (
-        torch.div(
-            atom_count_sqr, num_atoms_per_image_expand, rounding_mode="floor"
-        )
+        torch.div(atom_count_sqr, num_atoms_per_image_expand, rounding_mode="floor")
     ) + index_offset_expand
-    index2 = (
-        atom_count_sqr % num_atoms_per_image_expand
-    ) + index_offset_expand
+    index2 = (atom_count_sqr % num_atoms_per_image_expand) + index_offset_expand
     # Get the positions for each atom
     pos1 = torch.index_select(pos, 0, index1)
     pos2 = torch.index_select(pos, 0, index2)
@@ -220,18 +215,15 @@ def radius_graph_pbc(
 
     # Tensor of unit cells
     cells_per_dim = [
-        torch.arange(-rep, rep + 1, device=device, dtype=torch.float)
-        for rep in max_rep
+        torch.arange(-rep, rep + 1, device=device, dtype=torch.float) for rep in max_rep
     ]
     unit_cell = torch.cartesian_prod(*cells_per_dim)
     num_cells = len(unit_cell)
-    unit_cell_per_atom = unit_cell.view(1, num_cells, 3).repeat(
-        len(index2), 1, 1
-    )
+    unit_cell_per_atom = unit_cell.view(1, num_cells, 3).repeat(len(index2), 1, 1)
     unit_cell = torch.transpose(unit_cell, 0, 1)
-    unit_cell_batch = unit_cell.view(1, 3, num_cells).expand(
-        batch_size, -1, -1
-    ).double()
+    unit_cell_batch = (
+        unit_cell.view(1, 3, num_cells).expand(batch_size, -1, -1).double()
+    )
 
     # Compute the x, y, z positional offsets for each cell in each image
     data_cell = torch.transpose(cell, 1, 2).to(device)
@@ -286,14 +278,12 @@ def radius_graph_pbc(
     return edge_index, unit_cell, num_neighbors_image
 
 
-def get_max_neighbors_mask(
-    natoms, index, atom_distance, max_num_neighbors_threshold
-):
+def get_max_neighbors_mask(natoms, index, atom_distance, max_num_neighbors_threshold):
     r"""
     Give a mask that filters out edges so that each atom has at most
     `max_num_neighbors_threshold` neighbors.
     Assumes that `index` is sorted.
-    
+
     borrowed from ocp.
     """
     device = natoms.device
@@ -304,14 +294,10 @@ def get_max_neighbors_mask(
     ones = index.new_ones(1).expand_as(index)
     num_neighbors = segment_coo(ones, index, dim_size=num_atoms)
     max_num_neighbors = num_neighbors.max()
-    num_neighbors_thresholded = num_neighbors.clamp(
-        max=max_num_neighbors_threshold
-    )
+    num_neighbors_thresholded = num_neighbors.clamp(max=max_num_neighbors_threshold)
 
     # Get number of (thresholded) neighbors per image
-    image_indptr = torch.zeros(
-        natoms.shape[0] + 1, device=device, dtype=torch.long
-    )
+    image_indptr = torch.zeros(natoms.shape[0] + 1, device=device, dtype=torch.long)
     image_indptr[1:] = torch.cumsum(natoms, dim=0)
     num_neighbors_image = segment_csr(num_neighbors_thresholded, image_indptr)
 
@@ -320,16 +306,14 @@ def get_max_neighbors_mask(
         max_num_neighbors <= max_num_neighbors_threshold
         or max_num_neighbors_threshold <= 0
     ):
-        mask_num_neighbors = torch.tensor(
-            [True], dtype=bool, device=device
-        ).expand_as(index)
+        mask_num_neighbors = torch.tensor([True], dtype=bool, device=device).expand_as(
+            index
+        )
         return mask_num_neighbors, num_neighbors_image
 
     # Create a tensor of size [num_atoms, max_num_neighbors] to sort the distances of the neighbors.
     # Fill with infinity so we can easily remove unused distances later.
-    distance_sort = torch.full(
-        [num_atoms * max_num_neighbors], np.inf, device=device
-    )
+    distance_sort = torch.full([num_atoms * max_num_neighbors], np.inf, device=device)
 
     # Create an index map to map distances from atom_distance to distance_sort
     # index_sort_map assumes index to be sorted
@@ -366,4 +350,3 @@ def get_max_neighbors_mask(
     mask_num_neighbors.index_fill_(0, index_sort, True)
 
     return mask_num_neighbors, num_neighbors_image
-

@@ -3,7 +3,7 @@ from typing import List
 import math
 import torch
 from torch import Tensor
-from torch_scatter import scatter_add, scatter_mean
+from ReactBench.utils.scatter_utils import scatter_add, scatter_mean
 
 import ase
 from ase.calculators.emt import EMT
@@ -83,18 +83,9 @@ def space_indices(num_steps, count):
 
 
 def idpp_guess(r_pos, p_pos, x0_size, x0_other, n_images=3, interpolate="idpp"):
-    _r_pos = torch.tensor_split(
-        r_pos,
-        torch.cumsum(x0_size, dim=0).to("cpu")[:-1]
-    )
-    _p_pos = torch.tensor_split(
-        p_pos,
-        torch.cumsum(x0_size, dim=0).to("cpu")[:-1]
-    )
-    z = torch.tensor_split(
-        x0_other[:, -1],
-        torch.cumsum(x0_size, dim=0).to("cpu")[:-1]
-    )
+    _r_pos = torch.tensor_split(r_pos, torch.cumsum(x0_size, dim=0).to("cpu")[:-1])
+    _p_pos = torch.tensor_split(p_pos, torch.cumsum(x0_size, dim=0).to("cpu")[:-1])
+    z = torch.tensor_split(x0_other[:, -1], torch.cumsum(x0_size, dim=0).to("cpu")[:-1])
     z = [_z.long().cpu().numpy() for _z in z]
 
     ts_pos = []
@@ -119,9 +110,15 @@ def idpp_guess(r_pos, p_pos, x0_size, x0_other, n_images=3, interpolate="idpp"):
         neb = NEB(images)
         if interpolate == "idpp":
             neb.idpp_interpolate(
-                traj=None, log=None, fmax=1000, optimizer=ase.optimize.MDMin, mic=False, steps=0)
+                traj=None,
+                log=None,
+                fmax=1000,
+                optimizer=ase.optimize.MDMin,
+                mic=False,
+                steps=0,
+            )
         elif interpolate == "linear":
-            neb.interpolate('linear')
+            neb.interpolate("linear")
         else:
             raise ValueError("interpolate can only be idpp or linear")
         x_ts = torch.tensor(

@@ -2,7 +2,12 @@ from typing import List
 import numpy as np
 
 from pymatgen.core import Molecule
-from pymatgen.analysis.molecule_matcher import BruteForceOrderMatcher, GeneticOrderMatcher, HungarianOrderMatcher, KabschMatcher
+from pymatgen.analysis.molecule_matcher import (
+    BruteForceOrderMatcher,
+    GeneticOrderMatcher,
+    HungarianOrderMatcher,
+    KabschMatcher,
+)
 from pymatgen.io.xyz import XYZ
 
 from torch import Tensor
@@ -65,8 +70,7 @@ def pymatgen_rmsd(
             species=mol2.species,
             coords=coords,
         )
-        rmsd_reflect = rmsd_core(
-            mol1, mol2_reflect, threshold, same_order=same_order)
+        rmsd_reflect = rmsd_core(mol1, mol2_reflect, threshold, same_order=same_order)
         rmsd = min(rmsd, rmsd_reflect)
     return rmsd
 
@@ -102,6 +106,7 @@ def batch_rmsd(
         start_ind = end_ind
     return rmsds
 
+
 def batch_rmsd_sb(
     fragments_node: Tensor,
     pred_xh: Tensor,
@@ -116,8 +121,8 @@ def batch_rmsd_sb(
     start_ind = np.concatenate([np.int64(np.zeros(1)), end_ind[:-1]])
 
     for start, end in zip(start_ind, end_ind):
-        mol1 = xh2pmg(pred_xh[start : end])
-        mol2 = xh2pmg(target_xh[start : end])
+        mol1 = xh2pmg(pred_xh[start:end])
+        mol2 = xh2pmg(target_xh[start:end])
         rmsd = pymatgen_rmsd(
             mol1,
             mol2,

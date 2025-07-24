@@ -1,18 +1,25 @@
 from typing import Optional
-
+import os
 import torch
 import numpy as np
 from ase.calculators.calculator import Calculator, all_changes
 from oa_reactdiff.trainer.potential_module import PotentialModule
 from torch_geometric.data import Data
 
+
 def onehot_convert(atomic_numbers):
     """
     Convert a list of atomic numbers into an one-hot matrix
     """
-    encoder= {1: [1, 0, 0, 0, 0], 6: [0, 1, 0, 0, 0], 7: [0, 0, 1, 0, 0], 8: [0, 0, 0, 1, 0]}
+    encoder = {
+        1: [1, 0, 0, 0, 0],
+        6: [0, 1, 0, 0, 0],
+        7: [0, 0, 1, 0, 0],
+        8: [0, 0, 0, 1, 0],
+    }
     onehot = [encoder[i] for i in atomic_numbers]
     return np.array(onehot)
+
 
 def mols_to_batch(molecules):
     """
@@ -29,17 +36,19 @@ def mols_to_batch(molecules):
             pos = coordinates
             one_hot = onehot_convert(atomic_numbers)
         else:
-            pos = np.vstack([pos,coordinates])
-            one_hot = np.vstack([one_hot,onehot_convert(atomic_numbers)])
-    # compile as data        
-    data = Data(natoms=torch.tensor(np.array(natoms), dtype=torch.int64),\
-                pos=torch.tensor(pos, dtype=torch.float32).requires_grad_(True),\
-                one_hot=torch.tensor(one_hot, dtype=torch.int64),\
-                charges=torch.tensor(np.array(charge),dtype=torch.int32),\
-                batch=torch.tensor(np.array(batch), dtype=torch.int64),\
-                ae=torch.tensor(np.array(natoms), dtype=torch.int64)
-                )
+            pos = np.vstack([pos, coordinates])
+            one_hot = np.vstack([one_hot, onehot_convert(atomic_numbers)])
+    # compile as data
+    data = Data(
+        natoms=torch.tensor(np.array(natoms), dtype=torch.int64),
+        pos=torch.tensor(pos, dtype=torch.float32).requires_grad_(True),
+        one_hot=torch.tensor(one_hot, dtype=torch.int64),
+        charges=torch.tensor(np.array(charge), dtype=torch.int32),
+        batch=torch.tensor(np.array(batch), dtype=torch.int64),
+        ae=torch.tensor(np.array(natoms), dtype=torch.int64),
+    )
     return data
+
 
 class LeftNetCalculator(Calculator):
     """LeftNet ASE Calculator.
@@ -50,7 +59,7 @@ class LeftNetCalculator(Calculator):
 
     def __init__(
         self,
-        weight: str = '/root/ReactBench/ckpt/leftnet.ckpt',
+        weight: str = None,
         device: Optional[torch.device] = None,
         use_autograd: bool = True,
         **kwargs,
@@ -72,11 +81,15 @@ class LeftNetCalculator(Calculator):
         self.use_autograd = use_autograd
         # load model
         self.device = device or ("cuda" if torch.cuda.is_available() else "cpu")
+        if weight is None:
+            this_file_dir = os.path.dirname(os.path.abspath(__file__))
+            proj_root_dir = os.path.dirname(this_file_dir)
+            weight = f"{proj_root_dir}/ckpt/leftnet.ckpt"
         pm = PotentialModule.load_from_checkpoint(weight, map_location=self.device)
         pm.eval()
         self.model = pm.potential
 
-        properties = ["energy","forces"]
+        properties = ["energy", "forces"]
         self.implemented_properties = properties
 
     def calculate(self, atoms=None, properties=None, system_changes=all_changes):

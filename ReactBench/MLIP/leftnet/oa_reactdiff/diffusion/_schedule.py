@@ -1,4 +1,5 @@
 """t schedule used in diffusion process."""
+
 from typing import Tuple
 from functools import partial
 import numpy as np
@@ -30,16 +31,16 @@ def cosine_beta_schedule(timesteps, s=0.008, raise_to_power: float = 1):
 
 
 def ccosine_schedule(timesteps, start=0, end=1, tau=1, clip_min=1e-9):
-    t = np.linspace(0, 1, timesteps+1)
+    t = np.linspace(0, 1, timesteps + 1)
     v_start = np.cos(start * np.pi / 2) ** (2 * tau)
     v_end = np.cos(end * np.pi / 2) ** (2 * tau)
-    output = np.cos((t * (end - start) + start) * np.pi /2) ** (2 * tau)
+    output = np.cos((t * (end - start) + start) * np.pi / 2) ** (2 * tau)
     output = (v_end - output) / (v_end - v_start)
     return np.clip(output, clip_min, 1 - clip_min)
 
 
 def linear_schedule(timesteps, clip_min=1e-9):
-    t = np.linspace(0, 1, timesteps+1)
+    t = np.linspace(0, 1, timesteps + 1)
     output = 1 - t
     return np.clip(output, clip_min, 1 - clip_min)
 
@@ -225,7 +226,7 @@ def get_repaint_schedule(resamplings, jump_length, timesteps):
                 repaint_schedule.extend([jump_length] * resamplings)
             curr_t += jump_length
         else:
-            residual = (timesteps - curr_t)
+            residual = timesteps - curr_t
             if len(repaint_schedule) > 0:
                 repaint_schedule[-1] += residual
             else:
@@ -235,17 +236,25 @@ def get_repaint_schedule(resamplings, jump_length, timesteps):
     return list(reversed(repaint_schedule))
 
 
-def make_beta_schedule(n_timestep=1000, linear_start=1e-4, linear_end=2e-2,
-                       power: float = 1., inv_power: float = 1.):
+def make_beta_schedule(
+    n_timestep=1000,
+    linear_start=1e-4,
+    linear_end=2e-2,
+    power: float = 1.0,
+    inv_power: float = 1.0,
+):
     """
     betas for schrodinger bridge
     """
-    betas = torch.linspace(
-        linear_start ** inv_power,
-        linear_end ** inv_power,
-        n_timestep,
-        dtype=torch.float64
-    ) ** power
+    betas = (
+        torch.linspace(
+            linear_start**inv_power,
+            linear_end**inv_power,
+            n_timestep,
+            dtype=torch.float64,
+        )
+        ** power
+    )
     return betas.numpy()
 
 
@@ -266,21 +275,23 @@ def compute_gaussian_product_coef(sigma1, sigma2):
     return coef1, coef2, var
 
 
-class SBSchedule():
+class SBSchedule:
     def __init__(
         self,
         timesteps: int = 1000,
         beta_max: float = 0.3,
-        power: float = 1.,
-        inv_power: float = 1.
+        power: float = 1.0,
+        inv_power: float = 1.0,
     ):
         betas = make_beta_schedule(
             n_timestep=timesteps,
-            linear_end=beta_max/timesteps,
+            linear_end=beta_max / timesteps,
             power=power,
             inv_power=inv_power,
         )
-        betas = np.concatenate([betas[:timesteps//2], np.flip(betas[:timesteps//2])])
+        betas = np.concatenate(
+            [betas[: timesteps // 2], np.flip(betas[: timesteps // 2])]
+        )
         betas = (beta_max / timesteps) / np.max(betas) * betas * 0.5
 
         self.timesteps = betas.shape[0]
@@ -303,7 +314,7 @@ class SBSchedule():
         self.betas = to_torch(betas)
         self.std_fwd = to_torch(std_fwd)
         self.std_bwd = to_torch(std_bwd)
-        self.std_sb  = to_torch(std_sb)
+        self.std_sb = to_torch(std_sb)
         self.mu_x0 = to_torch(mu_x0)
         self.mu_x1 = to_torch(mu_x1)
         # self.alphas = to_torch(alphas)

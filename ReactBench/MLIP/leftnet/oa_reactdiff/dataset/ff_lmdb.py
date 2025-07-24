@@ -53,8 +53,7 @@ class LmdbDataset(Dataset):
             self.metadata_path = self.path.parent / "metadata.npz"
             self.env = self.connect_db(self.path)
             self._keys = [
-                f"{j}".encode("ascii")
-                for j in range(self.env.stat()["entries"])
+                f"{j}".encode("ascii") for j in range(self.env.stat()["entries"])
             ]
             self.num_samples = len(self._keys)
 
@@ -88,7 +87,6 @@ class LmdbDataset(Dataset):
             except TypeError:
                 datapoint_pickled = self.env.begin().get(self._keys[idx - 1])
                 data_object = pickle.loads(datapoint_pickled)
-                
 
         if self.transform is not None:
             data_object = self.transform(data_object)

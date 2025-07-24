@@ -7,7 +7,7 @@ import numpy as np
 from torch import nn, Tensor
 
 from torch_geometric.nn.conv import MessagePassing
-from torch_scatter import scatter, scatter_mean
+from ReactBench.utils.scatter_utils import scatter, scatter_mean
 
 from oa_reactdiff.model.util_funcs import unsorted_segment_sum
 from oa_reactdiff.model.core import MLP
@@ -208,11 +208,23 @@ class EquiMessage(MessagePassing):
         )
 
         self.x_proj = nn.Sequential(
-            nn.Linear(hidden_channels, hidden_channels, bias=False,),
+            nn.Linear(
+                hidden_channels,
+                hidden_channels,
+                bias=False,
+            ),
             nn.SiLU(),
-            nn.Linear(hidden_channels, hidden_channels * 3, bias=False,),
+            nn.Linear(
+                hidden_channels,
+                hidden_channels * 3,
+                bias=False,
+            ),
         )
-        self.rbf_proj = nn.Linear(num_radial, hidden_channels * 3, bias=False,)
+        self.rbf_proj = nn.Linear(
+            num_radial,
+            hidden_channels * 3,
+            bias=False,
+        )
 
         self.inv_sqrt_3 = 1 / math.sqrt(3.0)
         self.inv_sqrt_h = 1 / math.sqrt(hidden_channels)
@@ -340,12 +352,8 @@ class _EquiUpdate(nn.Module):
         super().__init__()
         self.hidden_channels = hidden_channels
 
-        self.vec_proj = nn.Linear(
-            hidden_channels, hidden_channels * 2, bias=False
-        )
-        self.vec_proj2 = nn.Linear(
-            hidden_channels, hidden_channels, bias=False
-        )
+        self.vec_proj = nn.Linear(hidden_channels, hidden_channels * 2, bias=False)
+        self.vec_proj2 = nn.Linear(hidden_channels, hidden_channels, bias=False)
         self.xvec_proj = nn.Sequential(
             nn.Linear(hidden_channels * 2, hidden_channels),
             nn.SiLU(),
@@ -358,7 +366,8 @@ class _EquiUpdate(nn.Module):
             nn.Linear(64, 8),
             # nn.BatchNorm1d(hidden_channels),
             nn.SiLU(inplace=True),
-            nn.Linear(8, 1))
+            nn.Linear(8, 1),
+        )
 
         self.lin4 = nn.Sequential(
             nn.Linear(6, 64),
@@ -366,7 +375,8 @@ class _EquiUpdate(nn.Module):
             nn.Linear(64, 8),
             # nn.BatchNorm1d(hidden_channels),
             nn.SiLU(inplace=True),
-            nn.Linear(8, 1))
+            nn.Linear(8, 1),
+        )
 
         self.inv_sqrt_2 = 1 / math.sqrt(2.0)
         self.inv_sqrt_h = 1 / math.sqrt(hidden_channels)
@@ -382,30 +392,24 @@ class _EquiUpdate(nn.Module):
 
     def forward(self, x, vec, nodeframe):
         vec = self.vec_proj(vec)
-        vec1, vec2 = torch.split(
-            vec, self.hidden_channels, dim=-1
-        )
+        vec1, vec2 = torch.split(vec, self.hidden_channels, dim=-1)
         scalrization = torch.sum(vec1.unsqueeze(2) * nodeframe.unsqueeze(-1), dim=1)
         scalrization[:, 1, :] = torch.abs(scalrization[:, 1, :].clone())
 
-        scalar = torch.sqrt(torch.sum(vec1 ** 2, dim=-2))
+        scalar = torch.sqrt(torch.sum(vec1**2, dim=-2))
         scalrization1 = torch.sum(vec2.unsqueeze(2) * nodeframe.unsqueeze(-1), dim=1)
         scalrization1[:, 1, :] = torch.abs(scalrization1[:, 1, :].clone())
 
-        vec_dot = self.lin4(torch.permute(torch.cat([scalrization, scalrization1], dim=-2), (0, 2, 1))).squeeze(-1)
+        vec_dot = self.lin4(
+            torch.permute(torch.cat([scalrization, scalrization1], dim=-2), (0, 2, 1))
+        ).squeeze(-1)
         vec_dot = vec_dot * self.inv_sqrt_h
 
         # NOTE: Can't use torch.norm because the gradient is NaN for input = 0.
         # Add an epsilon offset to make sure sqrt is always positive.
 
-        x_vec_h = self.xvec_proj(
-            torch.cat(
-                [x, scalar], dim=-1
-            )
-        )
-        xvec1, xvec2, xvec3 = torch.split(
-            x_vec_h, self.hidden_channels, dim=-1
-        )
+        x_vec_h = self.xvec_proj(torch.cat([x, scalar], dim=-1))
+        xvec1, xvec2, xvec3 = torch.split(x_vec_h, self.hidden_channels, dim=-1)
 
         dx = xvec1 + xvec2 * vec_dot
         dx = dx * self.inv_sqrt_2
@@ -638,7 +642,7 @@ class LEFTNet(torch.nn.Module):
         )
         self.pos_expansion = MLP(
             in_dim=3,
-            out_dims=[hidden_channels//2, hidden_channels],
+            out_dims=[hidden_channels // 2, hidden_channels],
             activation="swish",
             last_layer_no_activation=True,
             bias=False,
@@ -652,9 +656,9 @@ class LEFTNet(torch.nn.Module):
             )
         if self.pos_grad:
             self.dynamic_mlp_modules = nn.Sequential(
-                nn.Linear(hidden_channels, hidden_channels//2),
+                nn.Linear(hidden_channels, hidden_channels // 2),
                 nn.SiLU(inplace=True),
-                nn.Linear(hidden_channels//2, 3),
+                nn.Linear(hidden_channels // 2, 3),
             )
 
         self.gcl_layers = nn.ModuleList()
@@ -666,8 +670,7 @@ class LEFTNet(torch.nn.Module):
                 GCLMessage(hidden_channels, num_radial, legacy=legacy)
             )
             self.message_layers.append(
-                EquiMessage(
-                    hidden_channels, num_radial, reflect_equiv).jittable()
+                EquiMessage(hidden_channels, num_radial, reflect_equiv).jittable()
             )
             self.update_layers.append(EquiUpdate(hidden_channels, reflect_equiv))
 
@@ -712,7 +715,9 @@ class LEFTNet(torch.nn.Module):
             if node_mask[center] > -1:
                 continue
             _connected = _j[torch.where(_i == center)]
-            _connected = torch.concat([_connected, torch.tensor([center], device=pos.device)])
+            _connected = torch.concat(
+                [_connected, torch.tensor([center], device=pos.device)]
+            )
             node_mask[_connected] = _ind
             _ind += 1
         return node_mask
@@ -728,7 +733,7 @@ class LEFTNet(torch.nn.Module):
         update_coords_mask: Optional[Tensor] = None,
         subgraph_mask: Optional[Tensor] = None,
         pbc: bool = False,
-        distance_vectors: Optional[Tensor] = None, 
+        distance_vectors: Optional[Tensor] = None,
     ):
         # if self.pos_require_grad:
         #     pos.requires_grad_()
@@ -754,8 +759,7 @@ class LEFTNet(torch.nn.Module):
 
         edge_index_w_cutoff = edge_index.T[torch.where(all_edge_masks > 0)[0]].T
         node_mask_w_cutoff = self.assemble_nodemask(
-            edge_index=edge_index_w_cutoff,
-            pos=pos
+            edge_index=edge_index_w_cutoff, pos=pos
         )
 
         pos_frame = pos.clone()
@@ -769,9 +773,11 @@ class LEFTNet(torch.nn.Module):
         else:
             coord_diff = distance_vectors
             dist = distance_vectors.norm(dim=-1)
-            coord_diff= coord_diff / (dist.unsqueeze(1) + EPS)
+            coord_diff = coord_diff / (dist.unsqueeze(1) + EPS)
             coord_cross = torch.cross(pos[i], pos[j])
-            coord_cross = coord_cross / ((torch.sqrt(torch.sum((coord_cross) ** 2, 1).unsqueeze(1))) + EPS)
+            coord_cross = coord_cross / (
+                (torch.sqrt(torch.sum((coord_cross) ** 2, 1).unsqueeze(1))) + EPS
+            )
             coord_vertical = torch.cross(coord_diff, coord_cross)
 
         dist = dist * all_edge_masks.squeeze(-1)
@@ -829,9 +835,7 @@ class LEFTNet(torch.nn.Module):
             b = nn_vector(eff_dist, eff_edge_index, pos_frame)
         # assert_rot_equiv(nn_vector, dist_pad, edge_index, pos)  # for debugging
 
-        x1 = (a - b) / (
-            (torch.sqrt(torch.sum((a - b) ** 2, 1).unsqueeze(1))) + EPS
-        )
+        x1 = (a - b) / ((torch.sqrt(torch.sum((a - b) ** 2, 1).unsqueeze(1))) + EPS)
         y1 = torch.cross(a, b)
         normy = (torch.sqrt(torch.sum(y1**2, 1).unsqueeze(1))) + EPS
         y1 = y1 / normy
@@ -851,11 +855,19 @@ class LEFTNet(torch.nn.Module):
             if self.legacy or i == 0:
                 s = s + self.pos_expansion(pos_prjt)
             s, edgeweight = self.gcl_layers[i](
-                s, edge_index, edgeweight,
+                s,
+                edge_index,
+                edgeweight,
             )
 
             dx, dvec = self.message_layers[i](
-                s, vec, edge_index, radial_emb, edgeweight, coord_diff, coord_cross,
+                s,
+                vec,
+                edge_index,
+                radial_emb,
+                edgeweight,
+                coord_diff,
+                coord_cross,
             )
             s = s + dx
             vec = vec + dvec
@@ -867,8 +879,12 @@ class LEFTNet(torch.nn.Module):
                 vec = vec + dvec
 
             if self.pos_grad:
-                dynamic_coff = self.dynamic_mlp_modules(s)   # (node, 3)
-                basis_mix = dynamic_coff[:, :1] * x1 + dynamic_coff[:, 1:2] * y1 + dynamic_coff[:, 2:3] * z1
+                dynamic_coff = self.dynamic_mlp_modules(s)  # (node, 3)
+                basis_mix = (
+                    dynamic_coff[:, :1] * x1
+                    + dynamic_coff[:, 1:2] * y1
+                    + dynamic_coff[:, 2:3] * z1
+                )
                 gradient = gradient + basis_mix / self.num_layers
 
         if self.for_conf:

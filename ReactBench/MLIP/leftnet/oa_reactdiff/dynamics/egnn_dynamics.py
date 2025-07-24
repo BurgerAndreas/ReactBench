@@ -3,7 +3,7 @@ from typing import Dict, List, Optional, Tuple
 import numpy as np
 import torch
 from torch import nn, Tensor
-from torch_scatter import scatter_mean
+from ReactBench.utils.scatter_utils import scatter_mean
 
 from oa_reactdiff.model import EGNN
 from oa_reactdiff.utils._graph_tools import get_subgraph_mask
@@ -129,15 +129,13 @@ class EGNNDynamics(BaseDynamics):
             update_coords_mask = None
         else:
             raise NotImplementedError  # no need to mask pos for inpainting mode.
-        
+
         distance_vectors = None
         if pbc:
             length_of_cell = 20
             single_cell = torch.tensor(np.eye(3) * length_of_cell).reshape(1, 3, 3)
-            cell = torch.vstack([
-                single_cell for _ in range(natoms.size(0))
-            ])
-            
+            cell = torch.vstack([single_cell for _ in range(natoms.size(0))])
+
             pbc_edge_index, cell_offsets, neighbors = radius_graph_pbc(
                 pos=pos,
                 cell=cell,
@@ -145,31 +143,34 @@ class EGNNDynamics(BaseDynamics):
                 radius=self.model.cutoff,
                 max_num_neighbors_threshold=50,
             )
-            pbc_edge_index, pbc_distances, pbc_distance_vectors, offsets = get_pbc_distances(
-                pos,
-                pbc_edge_index,
-                cell,
-                cell_offsets,
-                neighbors,
-                out_cell_only=False,
+            pbc_edge_index, pbc_distances, pbc_distance_vectors, offsets = (
+                get_pbc_distances(
+                    pos,
+                    pbc_edge_index,
+                    cell,
+                    cell_offsets,
+                    neighbors,
+                    out_cell_only=False,
+                )
             )
             # print("pos: ", pos)
             # print("natoms: ", natoms)
             # print("offsets: ", torch.min(cell_offsets), torch.max(cell_offsets))
-            
+
             pbc_subgraph_mask = torch.ones_like(pbc_distances)
-            
+
             idx_cross_fragment = torch.where(subgraph_mask == 0)[0]
             edge_index = edge_index.T[idx_cross_fragment].T
             subgraph_mask = subgraph_mask[idx_cross_fragment]
 
             i, j = edge_index
-            distance_vectors = torch.cat([pos[i] - pos[j], pbc_distance_vectors], axis=0)
+            distance_vectors = torch.cat(
+                [pos[i] - pos[j], pbc_distance_vectors], axis=0
+            )
             edge_index = torch.cat([edge_index, pbc_edge_index], axis=1)
             subgraph_mask = torch.cat([subgraph_mask, pbc_subgraph_mask])
-            
+
             pos = self.pbc_pos(pos, [length_of_cell] * 3)
-            
 
         h_final, pos_final, edge_attr_final = self.model(
             h,
@@ -213,7 +214,7 @@ class EGNNDynamics(BaseDynamics):
                 xh_final[ii][:, :],
                 device=xh_final[ii].device,
             )
-        
+
         # xh_final = self.enpose_pbc(xh_final)
 
         if edge_attr_final is None or edge_attr_final.size(1) <= max(1, self.dist_dim):
@@ -225,19 +226,16 @@ class EGNNDynamics(BaseDynamics):
     @staticmethod
     def enpose_pbc(xh: List[Tensor], magnitude=10.0) -> List[Tensor]:
         xrange = magnitude * 2
-        xh = [
-            torch.remainder(_xh + magnitude, xrange) - magnitude
-            for _xh in xh
-        ]
+        xh = [torch.remainder(_xh + magnitude, xrange) - magnitude for _xh in xh]
         return xh
-    
+
     @staticmethod
-    def pbc_pos(pos: List[Tensor], cell=[10, 10, 10]) -> List[Tensor]:  # TODO: generalize to non-cubic
+    def pbc_pos(
+        pos: List[Tensor], cell=[10, 10, 10]
+    ) -> List[Tensor]:  # TODO: generalize to non-cubic
         for ii in range(3):
-            pos[:, ii] = torch.fmod(
-                pos[:, ii], cell[ii]
-            )
-            loc = torch.where(torch.abs(pos[:, ii]) > cell[ii]/2)[0]
+            pos[:, ii] = torch.fmod(pos[:, ii], cell[ii])
+            loc = torch.where(torch.abs(pos[:, ii]) > cell[ii] / 2)[0]
             pos[loc, ii] += -1 * cell[ii] * pos[loc, ii].sign()
         return pos
 
@@ -319,8 +317,9 @@ class EGNNDynamics(BaseDynamics):
             List[Tensor]: list of new edge attributes
         """
         ij_new_reverse = ij_new[torch.tensor([1, 0])]
-        ind_new_reverse = torch.where(
-            (ij_new_reverse == edge_index_new_T).all(dim=1))[0]
+        ind_new_reverse = torch.where((ij_new_reverse == edge_index_new_T).all(dim=1))[
+            0
+        ]
         print(ind_new_reverse)
         if ind_new_reverse.size(0) == 0:
             raise ValueError(f"should always find a reverse ind.")

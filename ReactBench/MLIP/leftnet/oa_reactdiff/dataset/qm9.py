@@ -23,25 +23,26 @@ class BaseQM9(BaseDataset):
             remove_h=remove_h,
         )
         if self.remove_h:
-            pos = self.raw_dataset['positions']
-            charges = self.raw_dataset['charges']
-            num_atoms = self.raw_dataset['num_atoms']
+            pos = self.raw_dataset["positions"]
+            charges = self.raw_dataset["charges"]
+            num_atoms = self.raw_dataset["num_atoms"]
 
-            mask = self.raw_dataset['charges'] > 1
+            mask = self.raw_dataset["charges"] > 1
             new_positions = np.zeros_like(pos)
             new_charges = np.zeros_like(charges)
             for i in range(new_positions.shape[0]):
                 m = mask[i]
-                p = pos[i][m]   # positions to keep
-                c = charges[i][m]   # Charges to keep
+                p = pos[i][m]  # positions to keep
+                c = charges[i][m]  # Charges to keep
                 n = np.sum(m)
                 new_positions[i, :n, :] = p
                 new_charges[i, :n] = c
 
-            self.raw_dataset['positions'] = new_positions
-            self.raw_dataset['charges'] = new_charges
-            self.raw_dataset['num_atoms'] = np.sum(
-                self.raw_dataset['charges'] > 0, axis=1)
+            self.raw_dataset["positions"] = new_positions
+            self.raw_dataset["charges"] = new_charges
+            self.raw_dataset["num_atoms"] = np.sum(
+                self.raw_dataset["charges"] > 0, axis=1
+            )
 
         self.n_samples = len(self.raw_dataset["charges"])
         self.data = {}
@@ -94,7 +95,11 @@ class ProcessedQM9(BaseQM9):
             self.patch_dummy_molecules(idx + 1)
 
         self.data["condition"] = [
-            torch.zeros(size=(1, 1), dtype=torch.int64, device=self.device,)
+            torch.zeros(
+                size=(1, 1),
+                dtype=torch.int64,
+                device=self.device,
+            )
             for _ in range(self.n_samples)
         ]
 
@@ -134,7 +139,11 @@ class ProcessedDoubleQM9(BaseQM9):
             self.patch_dummy_molecules(idx + 2)
 
         self.data["condition"] = [
-            torch.zeros(size=(1, 1), dtype=torch.int64, device=self.device,)
+            torch.zeros(
+                size=(1, 1),
+                dtype=torch.int64,
+                device=self.device,
+            )
             for _ in range(self.n_samples)
         ]
 
@@ -166,8 +175,9 @@ class ProcessedDoubleQM9(BaseQM9):
                     self.hasO_set[key][frag1_O_idx_1sthalf],
                     self.hasN_set[key][frag1_N_idx_2ndhalf],
                 ],
-                axis=0
-            ) for key in self.raw_dataset
+                axis=0,
+            )
+            for key in self.raw_dataset
         }
         self.frag2_data = {
             key: np.concatenate(
@@ -175,8 +185,9 @@ class ProcessedDoubleQM9(BaseQM9):
                     self.hasN_set[key][frag2_N_idx_1sthalf],
                     self.hasO_set[key][frag2_O_idx_2ndhalf],
                 ],
-                axis=0
-            ) for key in self.raw_dataset
+                axis=0,
+            )
+            for key in self.raw_dataset
         }
 
 
@@ -216,7 +227,11 @@ class ProcessedTripleQM9(BaseQM9):
             self.patch_dummy_molecules(idx + 3)
 
         self.data["condition"] = [
-            torch.zeros(size=(1, 1), dtype=torch.int64, device=self.device,)
+            torch.zeros(
+                size=(1, 1),
+                dtype=torch.int64,
+                device=self.device,
+            )
             for _ in range(self.n_samples)
         ]
 
@@ -277,8 +292,9 @@ class ProcessedTripleQM9(BaseQM9):
                     self.hasF_set[key][frag1_F_idx_2_3],
                     self.hasN_set[key][frag1_N_idx_3_3],
                 ],
-                axis=0
-            ) for key in self.raw_dataset
+                axis=0,
+            )
+            for key in self.raw_dataset
         }
         self.frag2_data = {
             key: np.concatenate(
@@ -287,8 +303,9 @@ class ProcessedTripleQM9(BaseQM9):
                     self.hasO_set[key][frag2_O_idx_2_3],
                     self.hasF_set[key][frag2_F_idx_3_3],
                 ],
-                axis=0
-            ) for key in self.raw_dataset
+                axis=0,
+            )
+            for key in self.raw_dataset
         }
         self.frag3_data = {
             key: np.concatenate(
@@ -297,6 +314,7 @@ class ProcessedTripleQM9(BaseQM9):
                     self.hasN_set[key][frag3_N_idx_2_3],
                     self.hasO_set[key][frag3_O_idx_3_3],
                 ],
-                axis=0
-            ) for key in self.raw_dataset
+                axis=0,
+            )
+            for key in self.raw_dataset
         }

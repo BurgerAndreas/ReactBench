@@ -248,6 +248,7 @@ def mace_anicc(
         model_paths=model_path, device=device, default_dtype="float64"
     )
 
+
 def mace_off_finetuned(
     model: Union[str, Path] = "",
     device: str = "",
@@ -258,7 +259,7 @@ def mace_off_finetuned(
     """
     Constructs a MACECalculator with a fine-tuned model based on the MACE-OFF23 models.
     Args:
-        model (str, optional): Path to the model. 
+        model (str, optional): Path to the model.
         device (str, optional): Device to use for the model. Defaults to "cuda".
         default_dtype (str, optional): Default dtype for the model. Defaults to "float64".
         return_raw_model (bool, optional): Whether to return the raw model or an ASE calculator. Defaults to False.
@@ -268,9 +269,10 @@ def mace_off_finetuned(
         MACECalculator: trained on the MACE-OFF23 dataset
     """
     from mace.mace_module import PotentialModule
+
     device = device or ("cuda" if torch.cuda.is_available() else "cpu")
     pm = PotentialModule.load_from_checkpoint(model, map_location=device)
-    #pm = pm.to(device)
+    # pm = pm.to(device)
     pm = pm.eval()
     model = pm.potential
     device = device or ("cuda" if torch.cuda.is_available() else "cpu")
@@ -286,6 +288,7 @@ def mace_off_finetuned(
         print(
             "Using float32 for MACECalculator, which is faster but less accurate. Recommended for MD. Use float64 for geometry optimization."
         )
-    mace_calc = MACECalculator(models=[model], device=device, default_dtype=default_dtype, **kwargs)
+    mace_calc = MACECalculator(
+        models=[model], device=device, default_dtype=default_dtype, **kwargs
+    )
     return mace_calc
-

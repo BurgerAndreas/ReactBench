@@ -11,10 +11,8 @@ from ReactBench.utils.parsers import xyz_parse
 from ReactBench.utils.taffi_functions import table_generator
 
 logger = logging.getLogger(__name__)
-THRESH = ["gau_loose", "gau",
-          "gau_tight", "gau_vtight", "baker", "never"]
-PYSCF_SOLVATION_OPTIONS = ["SMD", "DDCOSMO",
-                           "IEF-PCM", "C-PCM", "SS(V)PE", "COSMO"]
+THRESH = ["gau_loose", "gau", "gau_tight", "gau_vtight", "baker", "never"]
+PYSCF_SOLVATION_OPTIONS = ["SMD", "DDCOSMO", "IEF-PCM", "C-PCM", "SS(V)PE", "COSMO"]
 HA2KCALMOL = 627.509
 
 
@@ -34,21 +32,21 @@ def kill_process_tree(pid):
 
 class PYSIS:
     def __init__(
-        self, 
-        input_geo, 
-        work_folder=os.getcwd(), 
-        jobname='pysis', 
-        jobtype='tsopt', 
-        coord_type='redund', 
-        nproc=1, 
-        mem=4000, 
-        exe=None, 
-        restart=False, 
-        dispersion='', 
-        functional='b3lyp',
-        basis='6-31G*',
-        charge=0, 
-        multiplicity=1, 
+        self,
+        input_geo,
+        work_folder=os.getcwd(),
+        jobname="pysis",
+        jobtype="tsopt",
+        coord_type="redund",
+        nproc=1,
+        mem=4000,
+        exe=None,
+        restart=False,
+        dispersion="",
+        functional="b3lyp",
+        basis="6-31G*",
+        charge=0,
+        multiplicity=1,
         alpb=None,
         gbsa=None,
         solvation_model=None,
@@ -60,7 +58,7 @@ class PYSIS:
         max_step=50,
         hess_step=3,
         hess_init=False,
-        freeze_atoms=None
+        freeze_atoms=None,
     ):
         """Initialize a pysisyphus job class.
 
@@ -82,7 +80,7 @@ class PYSIS:
             alpb(str, optional): Whether to use ALPB solvation. Defaults to None.
             gbsa(str, optional): Whether to use GBSA solvation. Defaults to None.
             solvation_model(str, optional): Solvation model for pyscf
-                - PCM: "IEF-PCM", "C-PCM", "SS(V)PE", "COSMO" 
+                - PCM: "IEF-PCM", "C-PCM", "SS(V)PE", "COSMO"
                 - DDCOSMO
                 - SMD
                 Defaults to None.
@@ -96,33 +94,33 @@ class PYSIS:
             hess_init (bool): Use initial Hessian. Defaults to False.
             freeze_atoms (list): List of atoms to freeze. Defaults to None.
         """
-         # turn the relative path to absolute path for input_geo
+        # turn the relative path to absolute path for input_geo
         if not os.path.isabs(input_geo):
             input_geo = os.path.abspath(input_geo)
         # turn the relative path to absolute path for work_folder
         if not os.path.isabs(work_folder):
             work_folder = os.path.abspath(work_folder)
-        self.input_geo    = input_geo
-        self.work_folder  = work_folder
-        self.pysis_input  = os.path.join(work_folder, f'{jobname}_input.yaml')
-        self.output       = os.path.join(work_folder, 'output.txt')
-        self.errlog       = os.path.join(work_folder, f'{jobname}-{jobtype}.err')
-        self.nproc        = int(nproc)
-        self.mem          = int(mem)
-        self.jobname      = jobname
-        self.jobtype      = jobtype
-        self.restart      = restart
-        self.coord_type   = coord_type
-        self.charge       = charge
+        self.input_geo = input_geo
+        self.work_folder = work_folder
+        self.pysis_input = os.path.join(work_folder, f"{jobname}_input.yaml")
+        self.output = os.path.join(work_folder, "output.txt")
+        self.errlog = os.path.join(work_folder, f"{jobname}-{jobtype}.err")
+        self.nproc = int(nproc)
+        self.mem = int(mem)
+        self.jobname = jobname
+        self.jobtype = jobtype
+        self.restart = restart
+        self.coord_type = coord_type
+        self.charge = charge
         self.multiplicity = multiplicity
-        self.functional   = functional
-        self.basis        = basis
-        self.alpb         = alpb
-        self.gbsa         = gbsa
+        self.functional = functional
+        self.basis = basis
+        self.alpb = alpb
+        self.gbsa = gbsa
         self.solvation_model = solvation_model
         self.solvent_epi = solvent_epi
         self.dispersion = dispersion
-        self.exe = exe if exe is not None else 'pysis'
+        self.exe = exe if exe is not None else "pysis"
 
         os.makedirs(self.work_folder, exist_ok=True)
         # create a pysis_input file
@@ -137,7 +135,7 @@ class PYSIS:
             freeze_atoms=freeze_atoms,
         )
 
-    def generate_calculator_settings(self, calctype='mlff-leftnet'):
+    def generate_calculator_settings(self, calctype="mlff-leftnet"):
         """Generate calculator-specific settings for the input file.
 
         Args:
@@ -146,37 +144,40 @@ class PYSIS:
         Returns:
             bool: False if calculator type not supported, None otherwise.
         """
-        with open(self.pysis_input, 'a') as f:
-            if calctype.startswith('mlff'):
-                method = '-'.join(calctype.split('-')[1:])
-                f.write(f'calc:\n type: mlff\n method: {method}\n pal: {self.nproc}\n mem: {self.mem}\n charge: {self.charge}\n mult: {self.multiplicity}\n')
-                
-            elif calctype == 'pyscf':
+        with open(self.pysis_input, "a") as f:
+            if calctype.startswith("mlff"):
+                method = "-".join(calctype.split("-")[1:])
+                f.write(
+                    f"calc:\n type: mlff\n method: {method}\n pal: {self.nproc}\n mem: {self.mem}\n charge: {self.charge}\n mult: {self.multiplicity}\n"
+                )
+
+            elif calctype == "pyscf":
                 settings = {
-                    'type': calctype,
-                    'method': 'dft',
-                    'xc': self.functional,
-                    'basis': self.basis,
-                    'pal': self.nproc,
-                    'mem': self.mem,
-                    'charge': self.charge,
-                    'mult': self.multiplicity
+                    "type": calctype,
+                    "method": "dft",
+                    "xc": self.functional,
+                    "basis": self.basis,
+                    "pal": self.nproc,
+                    "mem": self.mem,
+                    "charge": self.charge,
+                    "mult": self.multiplicity,
                 }
-                
+
                 if self.solvation_model:
                     if self.solvation_model.upper() not in PYSCF_SOLVATION_OPTIONS:
                         logger.warning(
-                            f"Your solvation model is {self.solvation_model.upper()}, currently, only {PYSCF_SOLVATION_OPTIONS} are supported. Here used SMD instead")
+                            f"Your solvation model is {self.solvation_model.upper()}, currently, only {PYSCF_SOLVATION_OPTIONS} are supported. Here used SMD instead"
+                        )
                         self.solvation_model = "SMD"
                     settings["solvation_model"] = self.solvation_model
                     settings["solvent_epi"] = self.solvent_epi
                 if self.dispersion:
                     settings["dispersion"] = self.dispersion
-                    
-                f.write('calc:\n')
+
+                f.write("calc:\n")
                 for key, value in settings.items():
-                    f.write(f' {key}: {value}\n')
-                    
+                    f.write(f" {key}: {value}\n")
+
             else:
                 print("Supports for other packages are underway")
                 return False
@@ -195,7 +196,7 @@ class PYSIS:
         Args:
             method (str, optional): Optimization method. Defaults to None.
                 - TSOPT: 'rsirfo', 'rsprfo' (default), 'trim'
-                - IRC: 'euler', 'eulerpc' (default), 'dampedvelocityverlet', 
+                - IRC: 'euler', 'eulerpc' (default), 'dampedvelocityverlet',
                        'gonzalezschlegel', 'lqa', 'imk', 'rk4'
                 - OPT: 'rfo' (default)
             thresh (str, optional): Convergence threshold. Defaults to 'gau'.
@@ -208,25 +209,26 @@ class PYSIS:
         jobtype = self.jobtype.lower()
         if thresh.lower() not in THRESH:
             logger.warning(
-                f"Your threshold is {thresh}, currently, only {THRESH} are supported. Here used gau instead")
+                f"Your threshold is {thresh}, currently, only {THRESH} are supported. Here used gau instead"
+            )
             thresh = "gau"
 
-        with open(self.pysis_input, 'a') as f:
-            if jobtype == 'tsopt':
-                method = method or 'rsprfo'
+        with open(self.pysis_input, "a") as f:
+            if jobtype == "tsopt":
+                method = method or "rsprfo"
                 settings = {
-                    'type': method,
-                    'do_hess': hess,
-                    'thresh': thresh,
-                    'max_cycles': max_step,
-                    'trust_radius': 0.2
+                    "type": method,
+                    "do_hess": hess,
+                    "thresh": thresh,
+                    "max_cycles": max_step,
+                    "trust_radius": 0.2,
                 }
                 if hess:
-                    settings['hessian_recalc'] = hess_step
-                    
-                f.write('tsopt:\n')
+                    settings["hessian_recalc"] = hess_step
+
+                f.write("tsopt:\n")
                 for key, value in settings.items():
-                    f.write(f' {key}: {value}\n')
+                    f.write(f" {key}: {value}\n")
 
             elif jobtype == "irc":
                 method = method or "eulerpc"
@@ -239,33 +241,33 @@ class PYSIS:
                     f"endopt:\n fragments: False\n do_hess: False\n thresh: {thresh}\n max_cycles: 50"
                 )
 
-            elif jobtype == 'opt':
-                method = method or 'rfo'
+            elif jobtype == "opt":
+                method = method or "rfo"
                 settings = {
-                    'type': method,
-                    'do_hess': hess,
-                    'thresh': thresh,
-                    'max_cycles': max_step
+                    "type": method,
+                    "do_hess": hess,
+                    "thresh": thresh,
+                    "max_cycles": max_step,
                 }
-                
-                f.write('opt:\n')
+
+                f.write("opt:\n")
                 for key, value in settings.items():
-                    f.write(f' {key}: {value}\n')
+                    f.write(f" {key}: {value}\n")
 
             else:
                 print("Supports for other job types are underway")
                 return False
 
     def generate_input(
-        self, 
-        calctype='mlff-leftnet', 
-        method=None, 
-        thresh='gau', 
-        hess=True, 
-        max_step=50, 
-        hess_step=3, 
-        hess_init=False, 
-        freeze_atoms=None
+        self,
+        calctype="mlff-leftnet",
+        method=None,
+        thresh="gau",
+        hess=True,
+        max_step=50,
+        hess_step=3,
+        hess_init=False,
+        freeze_atoms=None,
     ):
         """Create a PYSIS input file based on settings.
 
@@ -280,7 +282,7 @@ class PYSIS:
             freeze_atoms (list, optional): List of atoms to freeze. Defaults to None.
         """
         freeze_atoms = freeze_atoms or []
-        
+
         # Write geometry section
         with open(self.pysis_input, "w") as f:
             geom_settings = {"fn": self.input_geo}
@@ -289,7 +291,8 @@ class PYSIS:
                 geom_settings["type"] = self.coord_type
             else:
                 logger.warning(
-                    f"Your coordinate type is {self.coord_type}, currently, only cart, redund, dlc and tric are supported. Here used redund instead")
+                    f"Your coordinate type is {self.coord_type}, currently, only cart, redund, dlc and tric are supported. Here used redund instead"
+                )
                 geom_settings["type"] = "redund"
 
             if freeze_atoms:
@@ -298,7 +301,7 @@ class PYSIS:
             f.write("geom:\n")
             for key, value in geom_settings.items():
                 f.write(f" {key}: {value}\n")
-                
+
         # Generate calculator and job settings
         self.generate_calculator_settings(calctype=calctype)
         self.generate_job_settings(
@@ -307,12 +310,10 @@ class PYSIS:
             hess=hess,
             max_step=max_step,
             hess_step=hess_step,
-            hess_init=hess_init
+            hess_init=hess_init,
         )
-        
-    def execute(self,
-        timeout=3600,
-        cleanup=True):
+
+    def execute(self, timeout=3600, cleanup=True):
         """Execute a PYSIS calculation.
 
         Args:
@@ -327,7 +328,7 @@ class PYSIS:
             msg = f"PYSIS job {self.jobname} has been finished, skip this job..."
             print(msg)
             return msg
-            
+
         if os.path.isfile(self.output) and not self.restart:
             msg = f"PYSIS job {self.jobname} fails, skip this job..."
             print(msg)
@@ -336,7 +337,7 @@ class PYSIS:
         try:
             os.chdir(self.work_folder)
             env = os.environ.copy()
-            env['OMP_NUM_THREADS'] = str(self.nproc)
+            env["OMP_NUM_THREADS"] = str(self.nproc)
 
             print(f"running PYSIS job {self.jobname}")
 
@@ -370,8 +371,8 @@ class PYSIS:
                     )
 
         finally:
-            if 'process' in locals() and process.poll() is None:
-                kill_process_tree(process.pid) 
+            if "process" in locals() and process.poll() is None:
+                kill_process_tree(process.pid)
 
             if cleanup:
                 # Cleanup temporary files
@@ -379,30 +380,32 @@ class PYSIS:
                 if os.path.exists(tmp_scratch):
                     for file in os.listdir(tmp_scratch):
                         os.remove(os.path.join(tmp_scratch, file))
-                            
+
                 # find all h5 (besides final_hessian)
-                remove_h5s = [h5 for h5 in os.listdir(self.work_folder) if h5.endswith('.h5')]
+                remove_h5s = [
+                    h5 for h5 in os.listdir(self.work_folder) if h5.endswith(".h5")
+                ]
                 for h5 in remove_h5s:
-                    if 'final_hessian' not in h5:
+                    if "final_hessian" not in h5:
                         os.remove(os.path.join(self.work_folder, h5))
 
                 # remove useless log files
-                log_files = ['optimizer.log','pysisyphus.log','internal_coords.log']
+                log_files = ["optimizer.log", "pysisyphus.log", "internal_coords.log"]
                 for log in log_files:
                     log_file = os.path.join(self.work_folder, log)
                     if os.path.isfile(log_file):
                         os.remove(log_file)
-                
+
         if result.returncode == 0:
             msg = f"PYSIS job {self.jobname} is finished."
         else:
             msg = f"Command failed for PYSIS job {self.jobname}, check job log file for detailed information"
-            with open(self.output, 'a') as f:
-                f.write('\nError termination of PYSIS...\n')
-                
+            with open(self.output, "a") as f:
+                f.write("\nError termination of PYSIS...\n")
+
         print(msg)
         return msg
-    
+
     def calculation_terminated_with_error(self) -> bool:
         """Check if the calculation terminated with error.
 
@@ -412,14 +415,14 @@ class PYSIS:
         if not os.path.isfile(self.output):
             return False
 
-        with open(self.output, 'r', encoding="utf-8") as f:
+        with open(self.output, "r", encoding="utf-8") as f:
             lines = f.readlines()
             for line in reversed(lines):
-                if 'Error termination of' in line or 'Aborting!' in line:
+                if "Error termination of" in line or "Aborting!" in line:
                     return True
 
         return False
-        
+
     def calculation_terminated_normally(self) -> bool:
         """Check if the calculation terminated normally.
 
@@ -429,10 +432,10 @@ class PYSIS:
         if not os.path.isfile(self.output):
             return False
 
-        with open(self.output, 'r', encoding="utf-8") as f:
+        with open(self.output, "r", encoding="utf-8") as f:
             lines = f.readlines()
             for line in reversed(lines):
-                if 'pysisyphus run took' in line:
+                if "pysisyphus run took" in line:
                     return True
 
         return False
@@ -449,10 +452,10 @@ class PYSIS:
         if not self.calculation_terminated_normally():
             return False
 
-        with open(self.output, 'r', encoding="utf-8") as f:
+        with open(self.output, "r", encoding="utf-8") as f:
             lines = f.readlines()
             for line in reversed(lines):
-                if 'Converged!' in line:
+                if "Converged!" in line:
                     return True
 
         return False
@@ -476,9 +479,9 @@ class PYSIS:
             return True
 
         # Check if differences only involve metal atoms
-        metal_atoms = {'Zn', 'Mg', 'Li', 'Si', 'Ag'}
+        metal_atoms = {"Zn", "Mg", "Li", "Si", "Ag"}
         rows, cols = np.where(adj_mat_initial != adj_mat_final)
-        
+
         for i, j in zip(rows, cols):
             if elements[i] not in metal_atoms and elements[j] not in metal_atoms:
                 return False
@@ -493,19 +496,19 @@ class PYSIS:
         """
         if not os.path.isfile(self.output):
             return False
-        
+
         if not self.calculation_terminated_normally():
             return False
 
-        with open(self.output, 'r', encoding="utf-8") as f:
+        with open(self.output, "r", encoding="utf-8") as f:
             lines = f.readlines()
             for line in reversed(lines):
-                if 'Imaginary frequencies:' in line:
-                    freqs = [float(x) for x in re.findall(r'-?\d+\.?\d*', line)]
+                if "Imaginary frequencies:" in line:
+                    freqs = [float(x) for x in re.findall(r"-?\d+\.?\d*", line)]
                     return len(freqs) == 1 and freqs[0] < -10
 
         return False
-    
+
     def get_energy(self) -> float:
         """Get single point energy from the output file.
 
@@ -515,14 +518,14 @@ class PYSIS:
         if not os.path.isfile(self.output):
             return False
 
-        with open(self.output, 'r', encoding="utf-8") as f:
+        with open(self.output, "r", encoding="utf-8") as f:
             lines = f.readlines()
             for line in reversed(lines):
-                if 'energy:' in line:
+                if "energy:" in line:
                     return float(line.split()[-2])
 
         return False
-        
+
     def get_final_structure(self):
         """Get the final optimized geometry.
 
@@ -539,14 +542,13 @@ class PYSIS:
 
         return False, []
 
-
     def get_opted_geo(self):
         """Get the final optimized geometry.
 
         Returns:
             tuple: (elements, coordinates) if successful, (False, []) otherwise
         """
-        xyz_file = f'{self.work_folder}/final_geometry.xyz'
+        xyz_file = f"{self.work_folder}/final_geometry.xyz"
         if os.path.exists(xyz_file):
             return xyz_parse(xyz_file)
         return False, []
@@ -558,8 +560,8 @@ class PYSIS:
             tuple: (elements, coordinates) if successful, (False, []) otherwise
         """
         ts_files = [
-            f'{self.work_folder}/ts_opt.xyz',
-            f'{self.work_folder}/ts_final_geometry.xyz'
+            f"{self.work_folder}/ts_opt.xyz",
+            f"{self.work_folder}/ts_final_geometry.xyz",
         ]
 
         for ts_file in ts_files:
@@ -567,10 +569,8 @@ class PYSIS:
                 return xyz_parse(ts_file)
 
         return False, []
-    
 
-
-    def analyze_IRC(self, return_traj: bool = False):                                                    
+    def analyze_IRC(self, return_traj: bool = False):
         """Analyze IRC calculation results.
 
         Args:
@@ -581,11 +581,13 @@ class PYSIS:
                 tuple: (elements, reactant_geom, product_geom, ts_geom, barrier_left, barrier_right)
             If return_traj is True:
                 tuple: (elements, reactant_geom, product_geom, ts_geom, barrier_left, barrier_right, trajectory)
-            
+
             Barriers are in kcal/mol
         """
         # Get barriers from output
-        mols, info = xyz_parse(f'{self.work_folder}/finished_irc.trj', multiple=True, return_info=True)
+        mols, info = xyz_parse(
+            f"{self.work_folder}/finished_irc.trj", multiple=True, return_info=True
+        )
         energies = [float(i) for i in info]
 
         e_ts = max(energies)
@@ -597,10 +599,26 @@ class PYSIS:
         # Load geometries
         elements, ts_geom = xyz_parse(self.input_geo)
         reactant_geom = mols[0][1]
-        product_geom  = mols[-1][1]
-        
-        if not return_traj:
-            return elements, reactant_geom, product_geom, ts_geom, barrier_left, barrier_right, e_ts
-        
-        return elements, reactant_geom, product_geom, ts_geom, barrier_left, barrier_right, e_ts, mols
+        product_geom = mols[-1][1]
 
+        if not return_traj:
+            return (
+                elements,
+                reactant_geom,
+                product_geom,
+                ts_geom,
+                barrier_left,
+                barrier_right,
+                e_ts,
+            )
+
+        return (
+            elements,
+            reactant_geom,
+            product_geom,
+            ts_geom,
+            barrier_left,
+            barrier_right,
+            e_ts,
+            mols,
+        )

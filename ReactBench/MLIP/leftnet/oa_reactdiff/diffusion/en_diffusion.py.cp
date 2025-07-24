@@ -4,7 +4,7 @@ import numpy as np
 import torch
 from torch import nn, Tensor
 import torch.nn.functional as F
-from torch_scatter import scatter_mean
+from ReactBench.utils.scatter_utils import scatter_mean
 
 from oa_reactdiff.dynamics import EGNNDynamics
 from oa_reactdiff.utils import (

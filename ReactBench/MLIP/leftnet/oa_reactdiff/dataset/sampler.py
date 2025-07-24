@@ -42,28 +42,30 @@ class DynamicBatchSampler(Sampler):
             underlying examples, but :meth:`__len__` will be :obj:`None` since
             it is be ambiguous. (default: :obj:`None`)
     """
+
     def __init__(
-        self, 
+        self,
         dataset: Dataset,
-        max_num: int, 
-        mode: str = 'node',
-        shuffle: bool = False, 
+        max_num: int,
+        mode: str = "node",
+        shuffle: bool = False,
         skip_too_big: bool = False,
         num_steps: Optional[int] = None,
         drop_last: bool = True,
         max_batch: Optional[int] = None,
         ddp: bool = False,
-        **kwargs
+        **kwargs,
     ):
         if not isinstance(max_num, int) or max_num <= 0:
-            raise ValueError(f"`max_num` should be a positive integer value "
-                             "(got {max_num}).")
-        self.mode_avail =  ['node', 'node^2']
+            raise ValueError(
+                f"`max_num` should be a positive integer value " "(got {max_num})."
+            )
+        self.mode_avail = ["node", "node^2"]
         self.mode_calc_map = {
             "node": self.node_calc,
             "node^2": self.node_square_calc,
         }
-        
+
         if not mode in self.mode_avail:
             raise ValueError(f"mode {self.mode} is not available.")
         self.mode_calc = self.mode_calc_map[mode]
@@ -82,25 +84,27 @@ class DynamicBatchSampler(Sampler):
         self.max_batch = max_batch
         if not ddp:
             self.sampler = RandomSampler(
-                dataset, 
+                dataset,
                 generator=torch.Generator().manual_seed(42),
             )
         else:
             self.sampler = DistributedSampler(
-                dataset, shuffle=shuffle, seed=42,
+                dataset,
+                shuffle=shuffle,
+                seed=42,
             )
-        
+
         self.batch_size = self.max_num // 400
         if self.max_batch is None:
             self.max_batch = len(dataset) // self.batch_size
-        
+
     @staticmethod
     def node_calc(x):
         return x
-    
+
     @staticmethod
     def node_square_calc(x):
-        return x ** 2
+        return x**2
 
     def __iter__(self) -> Iterator[List[int]]:
         batch: List[int] = []
@@ -117,11 +121,10 @@ class DynamicBatchSampler(Sampler):
                 batch = []
                 batch_n = 0
                 num_batch += 1
-            
-                if (self.max_batch is not None) \
-                    and (num_batch > self.max_batch):
-                    break 
-                
+
+                if (self.max_batch is not None) and (num_batch > self.max_batch):
+                    break
+
             if n > self.max_num:
                 if self.skip_too_big:
                     continue
@@ -134,7 +137,7 @@ class DynamicBatchSampler(Sampler):
                     )
             batch.append(idx)
             batch_n += n
-        
+
         if not self.drop_last and len(batch):
             yield batch
 

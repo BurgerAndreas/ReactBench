@@ -3,7 +3,7 @@ import numpy as np
 import torch
 
 
-class Queue():
+class Queue:
     def __init__(self, max_len=50):
         self.items = []
         self.max_len = max_len
@@ -27,9 +27,8 @@ class Queue():
 
 
 def get_grad_norm(
-        parameters: Union[torch.Tensor, Iterable[torch.Tensor]],
-        norm_type: float = 2.0
-    ) -> torch.Tensor:
+    parameters: Union[torch.Tensor, Iterable[torch.Tensor]], norm_type: float = 2.0
+) -> torch.Tensor:
     """
     Adapted from: https://pytorch.org/docs/stable/_modules/torch/nn/utils/clip_grad.html#clip_grad_norm_
     """
@@ -41,12 +40,15 @@ def get_grad_norm(
     norm_type = float(norm_type)
 
     if len(parameters) == 0:
-        return torch.tensor(0.)
+        return torch.tensor(0.0)
 
     device = parameters[0].grad.device
 
-    total_norm = torch.norm(torch.stack(
-        [torch.norm(p.grad.detach(), norm_type).to(device) for p in
-         parameters]), norm_type)
+    total_norm = torch.norm(
+        torch.stack(
+            [torch.norm(p.grad.detach(), norm_type).to(device) for p in parameters]
+        ),
+        norm_type,
+    )
 
     return total_norm

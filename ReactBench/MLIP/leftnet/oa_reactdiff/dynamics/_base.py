@@ -1,4 +1,5 @@
 """Base class for assembling fragments and performing model updates."""
+
 from typing import Dict, List, Optional
 import torch
 from torch import nn
@@ -67,7 +68,9 @@ class BaseDynamics(nn.Module):
         self.dist_dim = self.model.dist_dim if hasattr(self.model, "dist_dim") else 0
 
         self.embed_dim = model_config["in_node_nf"]
-        self.edge_embed_dim = model_config["in_edge_nf"] if "in_edge_nf" in model_config else 0
+        self.edge_embed_dim = (
+            model_config["in_edge_nf"] if "in_edge_nf" in model_config else 0
+        )
         if condition_time:
             self.embed_dim -= 1
         if condition_nf > 0:

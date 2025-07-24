@@ -2,7 +2,7 @@ from typing import Dict, List, Optional, Tuple
 
 import torch
 from torch import nn, Tensor
-from torch_scatter import scatter_mean
+from ReactBench.utils.scatter_utils import scatter_mean
 
 from oa_reactdiff.model import EGNN
 from oa_reactdiff.model.core import GatedMLP
@@ -53,7 +53,7 @@ class Confidence(BaseDynamics):
         """
         model_config.update({"for_conf": True})
         update_pocket_coords = True
-        condition_time = True,
+        condition_time = (True,)
         super().__init__(
             model_config,
             fragment_names,

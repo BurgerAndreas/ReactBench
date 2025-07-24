@@ -3,6 +3,7 @@ import numpy as np
 from pyscf import gto, dft
 from pyscf.geomopt.geometric_solver import optimize
 from pyscf.hessian import thermo
+
 # from pyscf import dftd3
 
 from molSimplify.Classes.mol3D import mol3D
@@ -25,7 +26,15 @@ def count_negative_eig(x: list):
     return count
 
 
-def compute_efh(geomfile, f=True, hess=False, return_metrics=False, xc="wb97x", basis="631g*", d3=False):
+def compute_efh(
+    geomfile,
+    f=True,
+    hess=False,
+    return_metrics=False,
+    xc="wb97x",
+    basis="631g*",
+    d3=False,
+):
     spin = 0
     mol = gto.M(
         atom=geomfile,
@@ -47,18 +56,24 @@ def compute_efh(geomfile, f=True, hess=False, return_metrics=False, xc="wb97x", 
     force = None
     force_rms = np.nan
     if mf.converged and f:
-        force = mf.nuc_grad_method().kernel() * -1. / BOHR
-        force_rms = np.sqrt(np.mean(force ** 2)) * AU2EV
+        force = mf.nuc_grad_method().kernel() * -1.0 / BOHR
+        force_rms = np.sqrt(np.mean(force**2)) * AU2EV
         print("force rms (ev/A): ", force_rms)
 
     hessian = None
     if hess:
         hessian = mf.Hessian().kernel()
         freq_info = thermo.harmonic_analysis(mf.mol, hessian)
-        print("freq: ", freq_info['freq_wavenumber'])
+        print("freq: ", freq_info["freq_wavenumber"])
 
     if return_metrics:
-        return mf, force, hessian, force_rms, count_negative_eig(freq_info['freq_wavenumber'])
+        return (
+            mf,
+            force,
+            hessian,
+            force_rms,
+            count_negative_eig(freq_info["freq_wavenumber"]),
+        )
     return mf, force, hessian
 
 
@@ -95,8 +110,7 @@ def compute_irc(mf, hessian, ts_xyz=".ts.xyz", dq=0.1):
     for ii, atom in enumerate(ms_mol_eq.atoms):
         atom.setcoords(new_coords[ii])
     ms_mol_eq.writexyz("ts-.xyz")
-    _mf, _, _ = compute_efh(
-        "ts-.xyz", hess=False, return_metrics=False)
+    _mf, _, _ = compute_efh("ts-.xyz", hess=False, return_metrics=False)
     _, _ = compute_rmsd_with_optgeom(_mf, transition=False, xyzfile="opt-.xyz")
 
     # Right
@@ -104,8 +118,7 @@ def compute_irc(mf, hessian, ts_xyz=".ts.xyz", dq=0.1):
     for ii, atom in enumerate(ms_mol_eq.atoms):
         atom.setcoords(new_coords[ii])
     ms_mol_eq.writexyz("ts+.xyz")
-    _mf, _, _ = compute_efh(
-        "ts+.xyz", hess=False, return_metrics=False)
+    _mf, _, _ = compute_efh("ts+.xyz", hess=False, return_metrics=False)
     _, _ = compute_rmsd_with_optgeom(_mf, transition=False, xyzfile="opt+.xyz")
 
 

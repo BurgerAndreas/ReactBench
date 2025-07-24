@@ -7,7 +7,11 @@ import torch
 from potential_module import PotentialModule
 from pytorch_lightning import Trainer, seed_everything
 from pytorch_lightning.callbacks.progress import TQDMProgressBar
-from pytorch_lightning.callbacks import EarlyStopping, ModelCheckpoint, LearningRateMonitor
+from pytorch_lightning.callbacks import (
+    EarlyStopping,
+    ModelCheckpoint,
+    LearningRateMonitor,
+)
 from pytorch_lightning.loggers import WandbLogger
 from pytorch_lightning.strategies.ddp import DDPStrategy
 
@@ -103,30 +107,30 @@ use_pretrain = False
 source = None
 
 # if use_pretrain:
-    # checkpoint_path = "/home/ubuntu/efs/OA_ReactDiff/oa_reactdiff/trainer/checkpoint/TS1x-TSDiff/leftnet-0-0f522f4c30fa/ddpm-epoch=719-val-error_t_0=0.280.ckpt"  # has time
-    # checkpoint_path = "/home/ubuntu/efs/OA_ReactDiff/oa_reactdiff/trainer/checkpoint/TS1x-TSDiff/leftnet-notime-766403265642/ddpm-epoch=219-val-error_t_0=0.293.ckpt"  # no time
-    # ddpm_trainer = DDPMModule.load_from_checkpoint(
-    #     checkpoint_path=checkpoint_path,
-    #     map_location="cpu",
-    # )
-    # source = {
-    #     "model": ddpm_trainer.ddpm.dynamics.model.state_dict(),
-    #     "encoders": ddpm_trainer.ddpm.dynamics.encoders.state_dict(),
-    #     "decoders": ddpm_trainer.ddpm.dynamics.decoders.state_dict(),
-    # }
-    
-    # new_source = {
-    #     "encoders": OrderedDict(),
-    #     "decoders": OrderedDict(),
-    # }
-    # for k, v in source["encoders"].items():
-    #     if k[0] == "0":
-    #         new_source["encoders"][k] = v
-    # for k, v in source["decoders"].items():
-    #     if k[0] == "0":
-    #         new_source["decoders"][k] = v
-    # source["encoders"] = new_source["encoders"]
-    # source["decoders"] = new_source["decoders"]
+# checkpoint_path = "/home/ubuntu/efs/OA_ReactDiff/oa_reactdiff/trainer/checkpoint/TS1x-TSDiff/leftnet-0-0f522f4c30fa/ddpm-epoch=719-val-error_t_0=0.280.ckpt"  # has time
+# checkpoint_path = "/home/ubuntu/efs/OA_ReactDiff/oa_reactdiff/trainer/checkpoint/TS1x-TSDiff/leftnet-notime-766403265642/ddpm-epoch=219-val-error_t_0=0.293.ckpt"  # no time
+# ddpm_trainer = DDPMModule.load_from_checkpoint(
+#     checkpoint_path=checkpoint_path,
+#     map_location="cpu",
+# )
+# source = {
+#     "model": ddpm_trainer.ddpm.dynamics.model.state_dict(),
+#     "encoders": ddpm_trainer.ddpm.dynamics.encoders.state_dict(),
+#     "decoders": ddpm_trainer.ddpm.dynamics.decoders.state_dict(),
+# }
+
+# new_source = {
+#     "encoders": OrderedDict(),
+#     "decoders": OrderedDict(),
+# }
+# for k, v in source["encoders"].items():
+#     if k[0] == "0":
+#         new_source["encoders"][k] = v
+# for k, v in source["decoders"].items():
+#     if k[0] == "0":
+#         new_source["decoders"][k] = v
+# source["encoders"] = new_source["encoders"]
+# source["decoders"] = new_source["decoders"]
 
 seed_everything(1, workers=True)
 ddpm = PotentialModule(
@@ -160,9 +164,7 @@ if trainer is None or (isinstance(trainer, Trainer) and trainer.is_global_zero):
     )
     try:  # Avoid errors for creating wandb instances multiple times
         wandb_logger.experiment.config.update(config)
-        wandb_logger.watch(
-            ddpm.confidence, log="all", log_freq=100, log_graph=False
-        )
+        wandb_logger.watch(ddpm.confidence, log="all", log_freq=100, log_graph=False)
     except:
         pass
 
@@ -180,7 +182,7 @@ checkpoint_callback = ModelCheckpoint(
     every_n_epochs=10,
     save_top_k=-1,
 )
-lr_monitor = LearningRateMonitor(logging_interval='step')
+lr_monitor = LearningRateMonitor(logging_interval="step")
 callbacks = [earlystopping, checkpoint_callback, TQDMProgressBar(), lr_monitor]
 if training_config["ema"]:
     callbacks.append(EMACallback())
@@ -191,7 +193,7 @@ strategy = DDPStrategy(find_unused_parameters=True)
 if strategy is not None:
     devices = list(range(torch.cuda.device_count()))
 if len(devices) == 1:
-    strategy ='auto'
+    strategy = "auto"
 print(strategy, devices)
 trainer = Trainer(
     max_epochs=10000,
@@ -215,4 +217,4 @@ trainer.fit(ddpm)
 
 # print("Finished training, continue training for 3000 epochs.")
 # trainer.fit_loop.max_epochs += 3000
-# trainer.fit(ddpm) 
+# trainer.fit(ddpm)

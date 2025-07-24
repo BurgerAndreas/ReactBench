@@ -7,7 +7,11 @@ from torch import nn
 from torch_geometric.loader import DataLoader
 from torch.optim.lr_scheduler import CosineAnnealingWarmRestarts, StepLR
 from pytorch_lightning import LightningModule
-from torchmetrics import MeanAbsoluteError, MeanAbsolutePercentageError, CosineSimilarity
+from torchmetrics import (
+    MeanAbsoluteError,
+    MeanAbsolutePercentageError,
+    CosineSimilarity,
+)
 from sklearn.metrics.pairwise import cosine_similarity
 
 from oa_reactdiff.dataset.ff_lmdb import LmdbDataset
@@ -76,14 +80,12 @@ class PotentialModule(LightningModule):
 
     def configure_optimizers(self):
         optimizer = torch.optim.AdamW(
-            self.potential.parameters(),
-            **self.optimizer_config
+            self.potential.parameters(), **self.optimizer_config
         )
         if not self.training_config["lr_schedule_type"] is None:
             scheduler_func = LR_SCHEDULER[self.training_config["lr_schedule_type"]]
             scheduler = scheduler_func(
-                optimizer=optimizer,
-                **self.training_config["lr_schedule_config"]
+                optimizer=optimizer, **self.training_config["lr_schedule_config"]
             )
             return [optimizer], [scheduler]
         return optimizer
@@ -154,7 +156,8 @@ class PotentialModule(LightningModule):
             "MAE_F": self.MAEEval(hat_forces, forces).item(),
             "MAPE_E": self.MAPEEval(hat_ae, ae).item(),
             "MAPE_F": self.MAPEEval(hat_forces, forces).item(),
-            "MAE_Fcos": 1 - self.cosineEval(hat_forces.detach().cpu(), forces.detach().cpu()),
+            "MAE_Fcos": 1
+            - self.cosineEval(hat_forces.detach().cpu(), forces.detach().cpu()),
             "Loss_E": eloss.item(),
             "Loss_F": floss.item(),
         }
@@ -206,23 +209,23 @@ class PotentialModule(LightningModule):
         optimizer,
         # optimizer_idx,
         gradient_clip_val,
-        gradient_clip_algorithm
+        gradient_clip_algorithm,
     ):
 
         if not self.clip_grad:
             return
 
         # Allow gradient norm to be 150% + 1.5 * stdev of the recent history.
-        max_grad_norm = 2 * self.gradnorm_queue.mean() + \
-            3 * self.gradnorm_queue.std()
+        max_grad_norm = 2 * self.gradnorm_queue.mean() + 3 * self.gradnorm_queue.std()
 
         # Get current grad_norm
-        params = [p for g in optimizer.param_groups for p in g['params']]
+        params = [p for g in optimizer.param_groups for p in g["params"]]
         grad_norm = utils.get_grad_norm(params)
 
         # Lightning will handle the gradient clipping
-        self.clip_gradients(optimizer, gradient_clip_val=max_grad_norm,
-                            gradient_clip_algorithm='norm')
+        self.clip_gradients(
+            optimizer, gradient_clip_val=max_grad_norm, gradient_clip_algorithm="norm"
+        )
 
         if float(grad_norm) > max_grad_norm:
             self.gradnorm_queue.add(float(max_grad_norm))
@@ -230,5 +233,7 @@ class PotentialModule(LightningModule):
             self.gradnorm_queue.add(float(grad_norm))
 
         if float(grad_norm) > max_grad_norm:
-            print(f'Clipped gradient with value {grad_norm:.1f} '
-                  f'while allowed {max_grad_norm:.1f}')
+            print(
+                f"Clipped gradient with value {grad_norm:.1f} "
+                f"while allowed {max_grad_norm:.1f}"
+            )

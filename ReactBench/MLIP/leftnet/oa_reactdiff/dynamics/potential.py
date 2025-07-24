@@ -1,10 +1,9 @@
-
 from typing import Dict, List, Optional, Tuple
 
 import torch
 from torch import nn, Tensor
 from torch.autograd import grad
-from torch_scatter import scatter_sum, scatter_mean
+from ReactBench.utils.scatter_utils import scatter_sum, scatter_mean
 from torch_geometric.data import Data
 
 from oa_reactdiff.model import EGNN
@@ -183,7 +182,9 @@ class Potential(BaseDynamics):
         edge_index = get_edges_index(combined_mask, remove_self_edge=True)
         fragments_nodes = [pyg_batch.natoms]
         n_frag_switch = get_n_frag_switch(fragments_nodes)
-        conditions = conditions or torch.zeros(pyg_batch.ae.size(0), 1, dtype=torch.long)
+        conditions = conditions or torch.zeros(
+            pyg_batch.ae.size(0), 1, dtype=torch.long
+        )
         conditions = conditions.to(pyg_batch.batch.device)
 
         pyg_batch.pos = remove_mean_batch(pyg_batch.pos, pyg_batch.batch)
@@ -194,13 +195,13 @@ class Potential(BaseDynamics):
                 dim=1,
             )
         ]
-        
+
         t = torch.randint(0, self.timesteps, size=(1,)) / self.timesteps
 
         ae, forces = self._forward(
             xh=xh,
             edge_index=edge_index,
-            t=torch.tensor([0.]),
+            t=torch.tensor([0.0]),
             conditions=conditions,
             n_frag_switch=n_frag_switch,
             combined_mask=combined_mask,
@@ -238,10 +239,7 @@ class Potential(BaseDynamics):
             Tensor: binary probability of confidence fo each graph.
         """
         h = torch.concat(
-            [
-                self.encoders[ii](h[ii])
-                for ii, name in enumerate(self.fragment_names)
-            ],
+            [self.encoders[ii](h[ii]) for ii, name in enumerate(self.fragment_names)],
             dim=0,
         )
         if self.edge_encoder is not None:
@@ -299,7 +297,9 @@ class Potential(BaseDynamics):
         edge_index = get_edges_index(combined_mask, remove_self_edge=True)
         fragments_nodes = [pyg_batch.natoms]
         n_frag_switch = get_n_frag_switch(fragments_nodes)
-        conditions = conditions or torch.zeros(pyg_batch.ae.size(0), 1, dtype=torch.long)
+        conditions = conditions or torch.zeros(
+            pyg_batch.ae.size(0), 1, dtype=torch.long
+        )
         conditions = conditions.to(pyg_batch.batch.device)
 
         pyg_batch.pos = remove_mean_batch(pyg_batch.pos, pyg_batch.batch)
@@ -313,20 +313,16 @@ class Potential(BaseDynamics):
         ]
 
         t = torch.randint(0, self.timesteps, size=(1,)) / self.timesteps
-        
+
         ae, forces = self._forward_autograd(
             h=h,
             pos=pyg_batch.pos,
             edge_index=edge_index,
-            t=torch.tensor([0.]),
+            t=torch.tensor([0.0]),
             conditions=conditions,
             n_frag_switch=n_frag_switch,
             combined_mask=combined_mask,
             edge_attr=None,
         )
-        forces = -grad(
-            torch.sum(ae),
-            pyg_batch.pos,
-            create_graph=True
-        )[0]
+        forces = -grad(torch.sum(ae), pyg_batch.pos, create_graph=True)[0]
         return ae, forces

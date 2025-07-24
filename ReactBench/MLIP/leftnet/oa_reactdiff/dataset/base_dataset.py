@@ -38,7 +38,7 @@ class BaseDataset(Dataset):
         self.zero_charge = zero_charge
         self.center = center
         self.device = device
-        
+
         self.atom_mapping = atom_mapping
         self.n_element = len(list(atom_mapping.keys()))
 
@@ -88,39 +88,60 @@ class BaseDataset(Dataset):
 
     def patch_dummy_molecules(self, idx):
         self.data[f"size_{idx}"] = torch.ones_like(
-            self.data[f"size_0"], device=self.device,
+            self.data[f"size_0"],
+            device=self.device,
         )
         self.data[f"pos_{idx}"] = [
-            torch.tensor([[0, 0, 0]], device=self.device,)
+            torch.tensor(
+                [[0, 0, 0]],
+                device=self.device,
+            )
             for _ in range(self.n_samples)
         ]
 
         self.data[f"one_hot_{idx}"] = [
-            torch.tensor([0], device=self.device,)
+            torch.tensor(
+                [0],
+                device=self.device,
+            )
             for _ in range(self.n_samples)
         ]
         self.data[f"one_hot_{idx}"] = [
-            F.one_hot(_z, num_classes=self.n_element) for _z in self.data[f"one_hot_{idx}"]
+            F.one_hot(_z, num_classes=self.n_element)
+            for _z in self.data[f"one_hot_{idx}"]
         ]
 
         if self.zero_charge:
             self.data[f"charge_{idx}"] = [
-                torch.zeros(size=(1, 1), dtype=torch.int64, device=self.device,)
+                torch.zeros(
+                    size=(1, 1),
+                    dtype=torch.int64,
+                    device=self.device,
+                )
                 for _ in range(self.n_samples)
             ]
         else:
             self.data[f"charge_{idx}"] = [
-                torch.ones(size=(1, 1), dtype=torch.int64, device=self.device,)
+                torch.ones(
+                    size=(1, 1),
+                    dtype=torch.int64,
+                    device=self.device,
+                )
                 for _ in range(self.n_samples)
             ]
 
         self.data[f"mask_{idx}"] = [
-            torch.zeros(size=(1,), dtype=torch.int64, device=self.device,)
+            torch.zeros(
+                size=(1,),
+                dtype=torch.int64,
+                device=self.device,
+            )
             for _ in range(self.n_samples)
         ]
 
-    def process_molecules(self, dataset_name, n_samples, idx, append_charge=None,
-                          position_key="positions"):
+    def process_molecules(
+        self, dataset_name, n_samples, idx, append_charge=None, position_key="positions"
+    ):
         data = getattr(self, dataset_name)
         self.data[f"size_{idx}"] = torch.tensor(data["num_atoms"], device=self.device)
         self.data[f"pos_{idx}"] = [
@@ -149,7 +170,11 @@ class BaseDataset(Dataset):
 
         if self.zero_charge:
             self.data[f"charge_{idx}"] = [
-                torch.zeros(size=(_size, 1), dtype=torch.int64, device=self.device,)
+                torch.zeros(
+                    size=(_size, 1),
+                    dtype=torch.int64,
+                    device=self.device,
+                )
                 for _size in data["num_atoms"]
             ]
         else:
@@ -180,7 +205,11 @@ class BaseDataset(Dataset):
                 ]
 
         self.data[f"mask_{idx}"] = [
-            torch.zeros(size=(_size,), dtype=torch.int64, device=self.device,)
+            torch.zeros(
+                size=(_size,),
+                dtype=torch.int64,
+                device=self.device,
+            )
             for _size in data["num_atoms"]
         ]
 

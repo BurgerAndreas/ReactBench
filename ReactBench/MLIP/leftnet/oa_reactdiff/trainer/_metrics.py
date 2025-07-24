@@ -3,7 +3,7 @@ import numpy as np
 import torch
 
 
-def average_over_batch_metrics(batch_metrics: List[Dict], allowed: List=[]):
+def average_over_batch_metrics(batch_metrics: List[Dict], allowed: List = []):
     epoch_metrics = {}
     effective_batch = {}
     for ii, out in enumerate(batch_metrics):
