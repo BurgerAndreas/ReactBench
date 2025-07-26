@@ -12,6 +12,7 @@ import shutil
 import multiprocessing as mp
 from logging.handlers import QueueHandler
 from joblib import Parallel, delayed
+import wandb
 
 # Add the parent directory to Python path to enable ReactBench module import
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -40,21 +41,41 @@ def main(args: dict):
     nprocs = int(args["nprocs"])
     charge = args.get("charge", 0)
     multiplicity = args.get("multiplicity", 1)
+    
+    # check that nprocs is smaller than the number of cpus on the machine
+    max_cpus = mp.cpu_count()
+    if nprocs > max_cpus:
+        print(f"ERROR: nprocs ({nprocs}) exceeds available CPU cores ({max_cpus})")
+        print(f"Recommended: Use at most {max_cpus - 2} cores to maintain system stability")
+        nprocs = max_cpus - 2
 
     # initialiazation
     if scratch[0] != "/":
         scratch = os.path.join(os.getcwd(), scratch)
     scratch_opt = f"{scratch}/scratch"
     args["scratch_opt"] = scratch_opt
+    
+    # Cleanup results if specified in config
+    if args.get("restart", False):
+        print(f"\nCleaning up results directory: {scratch}")
+        try:
+            shutil.rmtree(scratch)
+            print("Results cleanup completed successfully.")
+        except Exception as e:
+            print(f"Warning: Failed to cleanup results directory: {e}")
+    
+    if args.get("wandb", False):
+        wandb.init(project="reactbench", name=scratch, config=args)
 
     # create folders
-    if os.path.isdir(scratch) is False:
+    if not os.path.exists(scratch):
         os.mkdir(scratch)
-    if os.path.isdir(scratch_opt) is False:
+    if not os.path.exists(scratch_opt):
         os.mkdir(scratch_opt)
 
     # create init_rxns folder and copy input files
-    os.makedirs(f"{scratch}/init_rxns", exist_ok=True)
+    if not os.path.exists(f"{scratch}/init_rxns"):
+        os.makedirs(f"{scratch}/init_rxns")
     for f in os.listdir(args["inp_path"]):
         if f.endswith(".xyz"):
             os.system(f"cp {args['inp_path']}/{f} {scratch}/init_rxns/")
@@ -360,6 +381,9 @@ def ts_calc(
     end = time.time()
     logger.info(result)
 
+    if args.get("wandb", False):
+        wandb.log(result)
+        
     return (rxn_ind, tsopt_job, irc_job)
 
 
@@ -368,7 +392,7 @@ if __name__ == "__main__":
     parameters = yaml.load(open(parameters_yaml, "r"), Loader=yaml.FullLoader)
 
     # Parse additional command line arguments for parameter overrides
-    # Format: --key=value or --key value
+    # Format: --key=value 
     i = 2
     while i < len(sys.argv):
         arg = sys.argv[i]
@@ -377,15 +401,7 @@ if __name__ == "__main__":
                 # Handle --key=value format
                 key, value = arg[2:].split("=", 1)
             else:
-                # Handle --key value format
-                key = arg[2:]
-                if i + 1 < len(sys.argv) and not sys.argv[i + 1].startswith("--"):
-                    i += 1
-                    value = sys.argv[i]
-                else:
-                    print(f"Warning: No value provided for --{key}")
-                    i += 1
-                    continue
+                raise ValueError(f"Unrecognized argument: --{arg}")
 
             # Try to convert value to appropriate type
             # Check if it's a number
@@ -400,8 +416,13 @@ if __name__ == "__main__":
                     value = value.lower() == "true"
                 # Otherwise keep as string
 
+            if key not in parameters:
+                raise ValueError(f"Unrecognized argument: --{key}")
+
             parameters[key] = value
             print(f"Override: {key} = {value}")
+        else:
+            raise ValueError(f"Unrecognized argument: {arg}")
         i += 1
 
     main(parameters)

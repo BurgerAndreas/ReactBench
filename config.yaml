@@ -6,9 +6,9 @@
 reactbench_path: /root/ReactBench
 
 # input parameters for running reaction conformational sampling
-inp_path:      data  # a folder of target reaction xyz files
+inp_path:      data/ts1x  # a folder of target reaction xyz files
 scratch:       test-4   # output and working folder of RCS 
-nprocs:        28     # total number of cpus for performing YARP
+nprocs:        12     # total number of cpus for performing YARP
 
 # input parameters for calculation
 charge:        0     # system charge
@@ -21,7 +21,9 @@ calc:          mace-pretrain   # select from the available MLFF calculators, lik
 ckpt_path: null
 config_path: null
 
-cleanup_results: true
+restart:       true
+cleanup_results: false
+wandb: true
 
 # input parameters for GSM
 gsm_restart:   True          # restart GSM jobs or not

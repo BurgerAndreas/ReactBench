@@ -6,3 +6,5 @@ dependencies/
 
 data/ts1x
 data/*
+
+wandb/
