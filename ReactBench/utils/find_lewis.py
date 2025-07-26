@@ -333,7 +333,6 @@ def find_lewis(
 
 
 class LewisStructureError(Exception):
-
     def __init__(self, message="An error occured in a find_lewis() call."):
         self.message = message
         super().__init__(self.message)
@@ -460,7 +459,6 @@ def gen_init(obj_fun, adj_mat, elements, rings, q):
 
     # If charge is being added, then try all combinations that don't violate octet limits
     if qeff < 0:
-
         # Check the valency of the atoms to determine which can accept a charge
         e = return_e(bond_mat)
         heavies = [
@@ -471,7 +469,6 @@ def gen_init(obj_fun, adj_mat, elements, rings, q):
 
         # Loop over all q-combinations of heavy atoms
         for i in itertools.combinations_with_replacement(heavies, int(abs(qeff))):
-
             # Create a fresh copy of the initial be_mat and add charges
             tmp = copy(bond_mat)
             for _ in i:
@@ -496,7 +493,6 @@ def gen_init(obj_fun, adj_mat, elements, rings, q):
 
     # If charge is being removed, then remove from the least electronegative atoms first
     elif qeff > 0:
-
         # Atoms with unbound electrons
         lonelies = [
             count for count, _ in enumerate(bond_mat) if bond_mat[count, count] > 0
@@ -504,7 +500,6 @@ def gen_init(obj_fun, adj_mat, elements, rings, q):
 
         # Loop over all q-combinations of atoms with unbound electrons to be oxidized
         for i in itertools.combinations_with_replacement(lonelies, qeff):
-
             # This construction is used to handle cases with q>1 to avoid taking more electrons than are available.
             tmp = copy(bond_mat)
 
@@ -535,7 +530,6 @@ def gen_init(obj_fun, adj_mat, elements, rings, q):
             yield obj_fun(tmp), tmp, reactive
 
     else:
-
         # Find reactive atoms (i.e., atoms with unbound electron(s) or deficient atoms or a formal charge)
         e = return_e(bond_mat)
         f = return_formals(bond_mat, elements)
@@ -643,7 +637,6 @@ def gen_all_lstructs(
         for j in valid_moves(
             bond_mats[ind], elements, reactive, rings, ring_atoms, bridgeheads, seps
         ):
-
             # Carry out moves on trial bond_mat
             tmp = copy(bond_mats[ind])
             for k in j:
@@ -666,7 +659,6 @@ def gen_all_lstructs(
 
             # If min_opt=True then the search is run in a greedy mode where only moves that reduce the score are accepted
             if min_opt:
-
                 if counter == 0:
                     # Check that the resulting bond_mat is not already in the existing bond_mats
                     if b_hash not in hashes:
@@ -701,7 +693,6 @@ def gen_all_lstructs(
                 # min_win option allows the search to follow structures that increase the score up to min_win above the score of the best structure
                 if min_win:
                     if (score - min_score) < min_win:
-
                         # Check that the resulting bond_mat is not already in the existing bond_mats
                         if b_hash not in hashes:
                             bond_mats += [tmp]
@@ -733,10 +724,8 @@ def gen_all_lstructs(
 
                 # otherwise all structures are recursively explored (can be very expensive)
                 else:
-
                     # Check that the resulting bond_mat is not already in the existing bond_mats
                     if b_hash not in hashes:
-
                         bond_mats += [tmp]
                         scores += [score]
                         hashes.add(b_hash)
@@ -847,7 +836,6 @@ def valid_moves(bond_mat, elements, reactive, rings, ring_atoms, bridgeheads, se
 
     # Loop over the individual atoms and determine the moves that apply
     for i in reactive:
-
         # All of these moves involve forming a double bond with the i atom. Constraints that are common to all of the moves are checked here.
         # These are avoiding forming alkynes/allenes in rings and Bredt's rule (forming double-bonds at bridgeheads)
         if i not in bridgeheads and (
@@ -855,7 +843,6 @@ def valid_moves(bond_mat, elements, reactive, rings, ring_atoms, bridgeheads, se
             or sum([_ for count, _ in enumerate(bond_mat[i]) if count != i and _ > 1])
             == 0
         ):
-
             # Move 1: i is electron deficient and has an adjacent pi-bond between neighbor and next-nearest neighbor atoms, j and k, then the j-k pi-bond is turned into a new i-j pi-bond.
             if e[i] + 2 <= el_n_deficient[elements[i]] or el_expand_octet[elements[i]]:
                 for j in return_connections(i, bond_mat, inds=reactive):
@@ -921,19 +908,15 @@ def valid_moves(bond_mat, elements, reactive, rings, ring_atoms, bridgeheads, se
             if bond_mat[i, i] % 2 != 0 and (
                 el_expand_octet[elements[i]] or e[i] < el_n_deficient[elements[i]]
             ):
-
                 # Check on connected atoms
                 for j in return_connections(i, bond_mat, inds=reactive):
-
                     # Electron available @j
                     if bond_mat[j, j] > 0:
-
                         # Straightforward homogeneous bond formation if j is deficient or can expand octet
                         if (
                             el_expand_octet[elements[j]]
                             or e[j] < el_n_deficient[elements[j]]
                         ):
-
                             # Check that ring constraints don't disqualify bond-formation ( not a ring atom OR no existing double/triple bonds )
                             if (
                                 j not in ring_atoms
@@ -960,7 +943,6 @@ def valid_moves(bond_mat, elements, reactive, rings, ring_atoms, bridgeheads, se
                                         or e[k] < el_n_deficient[elements[k]]
                                     )
                                 ):
-
                                     # Check that ring constraints don't disqualify bond-formation ( not a ring atom OR no existing double/triple bonds )
                                     if (
                                         j not in ring_atoms
@@ -1048,11 +1030,9 @@ def valid_moves(bond_mat, elements, reactive, rings, ring_atoms, bridgeheads, se
     for i in rings:
         formal_charges = return_formals(bond_mat, elements)
         if is_aromatic(bond_mat, i, formal_charges) and len(i) % 2 == 0:
-
             # Find starting point
             loop_ind = None
             for count_j, j in enumerate(i):
-
                 # Get the indices of the previous and next atoms in the ring
                 if count_j == 0:
                     prev_atom = i[len(i) - 1]
@@ -1076,11 +1056,9 @@ def valid_moves(bond_mat, elements, reactive, rings, ring_atoms, bridgeheads, se
 
             # If a valid starting point was found
             if loop_ind:
-
                 # Loop over the atoms in the (anti)aromatic ring
                 move = []
                 for j in loop_ind:
-
                     # Get the indices of the previous and next atoms in the ring
                     if i.index(j) == 0:
                         prev_atom = i[len(i) - 1]
@@ -1485,7 +1463,6 @@ def is_aromatic(bond_mat, ring, formal_charges):
 
     # Loop over the atoms in the ring
     for count_i, i in enumerate(ring):
-
         # if there is a multi-charged ion, then the ring can't be aromatic
         if i in multi_fc:
             return 0
@@ -1511,7 +1488,6 @@ def is_aromatic(bond_mat, ring, formal_charges):
             or (bond_mat[i, prev_atom] > 1 or bond_mat[i, next_atom] > 1)
             or sum(bond_mat[i]) < 4
         ):
-
             # Double-bonds are only counted with the next atom to avoid double counting.
             if bond_mat[i, prev_atom] >= 2:
                 total_pi += 0
@@ -1832,7 +1808,6 @@ def adjust_metals(bond_mats, adj_mat, elements):
         defs = return_def(b, elements, e_def)
         for m_ind in m_inds:
             for con in return_connections(m_ind, adj_mat):
-
                 # type M - metal metal are handled at the end
                 if con in m_inds:
                     continue

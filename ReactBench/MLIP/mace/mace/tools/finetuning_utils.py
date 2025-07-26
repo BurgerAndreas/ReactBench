@@ -50,24 +50,24 @@ def load_foundations_elements(
         for j in range(4):  # Assuming 4 layers in conv_tp_weights,
             layer_name = f"layer{j}"
             if j == 0:
-                getattr(model.interactions[i].conv_tp_weights, layer_name).weight = (
-                    torch.nn.Parameter(
-                        getattr(
-                            model_foundations.interactions[i].conv_tp_weights,
-                            layer_name,
-                        )
-                        .weight[:num_radial, :]
-                        .clone()
+                getattr(
+                    model.interactions[i].conv_tp_weights, layer_name
+                ).weight = torch.nn.Parameter(
+                    getattr(
+                        model_foundations.interactions[i].conv_tp_weights,
+                        layer_name,
                     )
+                    .weight[:num_radial, :]
+                    .clone()
                 )
             else:
-                getattr(model.interactions[i].conv_tp_weights, layer_name).weight = (
-                    torch.nn.Parameter(
-                        getattr(
-                            model_foundations.interactions[i].conv_tp_weights,
-                            layer_name,
-                        ).weight.clone()
-                    )
+                getattr(
+                    model.interactions[i].conv_tp_weights, layer_name
+                ).weight = torch.nn.Parameter(
+                    getattr(
+                        model_foundations.interactions[i].conv_tp_weights,
+                        layer_name,
+                    ).weight.clone()
                 )
 
         model.interactions[i].linear.weight = torch.nn.Parameter(
@@ -106,13 +106,13 @@ def load_foundations_elements(
     for i in range(2):  # Assuming 2 products modules
         max_range = max_L + 1 if i == 0 else 1
         for j in range(max_range):  # Assuming 3 contractions in symmetric_contractions
-            model.products[i].symmetric_contractions.contractions[j].weights_max = (
-                torch.nn.Parameter(
-                    model_foundations.products[i]
-                    .symmetric_contractions.contractions[j]
-                    .weights_max[indices_weights, :, :]
-                    .clone()
-                )
+            model.products[i].symmetric_contractions.contractions[
+                j
+            ].weights_max = torch.nn.Parameter(
+                model_foundations.products[i]
+                .symmetric_contractions.contractions[j]
+                .weights_max[indices_weights, :, :]
+                .clone()
             )
 
             for k in range(2):  # Assuming 2 weights in each contraction
@@ -163,9 +163,7 @@ def load_foundations_elements(
             1
         ].linear_2.weight.view(shape_input_1, -1).repeat(
             len(model_heads), len(model_heads)
-        ).flatten().clone() / (
-            ((shape_input_1) / (shape_output_1)) ** 0.5
-        )
+        ).flatten().clone() / (((shape_input_1) / (shape_output_1)) ** 0.5)
         model.readouts[1].linear_2.weight = torch.nn.Parameter(
             model_readouts_one_linear_2_weight
         )

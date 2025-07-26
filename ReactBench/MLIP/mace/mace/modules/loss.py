@@ -54,14 +54,10 @@ def mean_squared_error_forces(ref: Batch, pred: TensorDict) -> torch.Tensor:
     # forces: [n_atoms, 3]
     configs_weight = torch.repeat_interleave(
         ref.weight, ref.ptr[1:] - ref.ptr[:-1]
-    ).unsqueeze(
-        -1
-    )  # [n_atoms, 1]
+    ).unsqueeze(-1)  # [n_atoms, 1]
     configs_forces_weight = torch.repeat_interleave(
         ref.forces_weight, ref.ptr[1:] - ref.ptr[:-1]
-    ).unsqueeze(
-        -1
-    )  # [n_atoms, 1]
+    ).unsqueeze(-1)  # [n_atoms, 1]
     return torch.mean(
         configs_weight
         * configs_forces_weight
@@ -80,14 +76,10 @@ def conditional_mse_forces(ref: Batch, pred: TensorDict) -> torch.Tensor:
     # forces: [n_atoms, 3]
     configs_weight = torch.repeat_interleave(
         ref.weight, ref.ptr[1:] - ref.ptr[:-1]
-    ).unsqueeze(
-        -1
-    )  # [n_atoms, 1]
+    ).unsqueeze(-1)  # [n_atoms, 1]
     configs_forces_weight = torch.repeat_interleave(
         ref.forces_weight, ref.ptr[1:] - ref.ptr[:-1]
-    ).unsqueeze(
-        -1
-    )  # [n_atoms, 1]
+    ).unsqueeze(-1)  # [n_atoms, 1]
 
     # Define the multiplication factors for each condition
     factors = torch.tensor([1.0, 0.7, 0.4, 0.1])
@@ -183,7 +175,7 @@ class WeightedForcesLoss(torch.nn.Module):
         return self.forces_weight * mean_squared_error_forces(ref, pred)
 
     def __repr__(self):
-        return f"{self.__class__.__name__}(" f"forces_weight={self.forces_weight:.3f})"
+        return f"{self.__class__.__name__}(forces_weight={self.forces_weight:.3f})"
 
 
 class WeightedEnergyForcesStressLoss(torch.nn.Module):
@@ -350,7 +342,7 @@ class DipoleSingleLoss(torch.nn.Module):
         )  # multiply by 100 to have the right scale for the loss
 
     def __repr__(self):
-        return f"{self.__class__.__name__}(" f"dipole_weight={self.dipole_weight:.3f})"
+        return f"{self.__class__.__name__}(dipole_weight={self.dipole_weight:.3f})"
 
 
 class WeightedEnergyForcesDipoleLoss(torch.nn.Module):

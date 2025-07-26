@@ -98,7 +98,6 @@ def mol_write(name, elements, geo, bond_mat, q=0, append_opt=False):
 
     # Write the file
     with open(name, open_cond) as f:
-
         # Write the header
         f.write("{}\n     RDKit          3D\n\n".format(base_name))
 
@@ -125,7 +124,6 @@ def mol_write(name, elements, geo, bond_mat, q=0, append_opt=False):
             if j == 1 and count_j > count_i
         ]
         for i in bonds:
-
             # Calculate bond order from the bond_mat
             bond_order = int(bond_mat[i[0], i[1]])
 

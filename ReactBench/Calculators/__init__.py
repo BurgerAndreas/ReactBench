@@ -18,6 +18,7 @@ except Exception as e:
 
 from .equiformer import EquiformerMLFF, get_equiformer_calculator
 
+
 # Factory functions for calculators
 # LeftNet
 def create_leftnet_calculator(device="cpu"):
@@ -69,7 +70,9 @@ def create_equiformer_calculator(device="cpu"):
     try:
         return get_equiformer_calculator(device=device)
     except NameError:
-        raise ImportError("Equiformer calculator is not available. Please check dependencies.")
+        raise ImportError(
+            "Equiformer calculator is not available. Please check dependencies."
+        )
 
 
 def create_equiformer_mlff(device="cpu"):
@@ -77,7 +80,10 @@ def create_equiformer_mlff(device="cpu"):
     try:
         return EquiformerMLFF(device=device)
     except NameError:
-        raise ImportError("Equiformer MLFF is not available. Please check dependencies.")
+        raise ImportError(
+            "Equiformer MLFF is not available. Please check dependencies."
+        )
+
 
 # Unified mapping: calculator name -> factory functions
 CALCULATOR_FACTORIES = {

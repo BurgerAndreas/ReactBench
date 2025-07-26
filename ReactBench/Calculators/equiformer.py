@@ -41,7 +41,7 @@ class EquiformerCalculator(Calculator):
             config_path: Path to the model config file
             **kwargs: Additional keyword arguments for parent Calculator class
         """
-            
+
         Calculator.__init__(self, **kwargs)
 
         # this is where all the calculated properties are stored
@@ -85,7 +85,7 @@ class EquiformerCalculator(Calculator):
         # Convert ASE atoms to torch_geometric format
         batch = ase_atoms_to_torch_geometric(atoms)
         batch = batch.to(self.device)
-        
+
         autograd = "hessian" in properties
 
         # Prepare batch with extra properties
@@ -104,7 +104,7 @@ class EquiformerCalculator(Calculator):
 
         # Energy is per molecule, extract scalar value
         self.results["energy"] = float(energy.detach().cpu().item())
-        
+
         if "hessian" in properties:
             hessian = compute_hessian(batch.pos, energy, forces).detach().cpu().numpy()
             self.results["hessian"] = hessian
@@ -116,7 +116,7 @@ class EquiformerCalculator(Calculator):
 def get_equiformer_calculator(device="cpu", ckpt_path=None, config_path=None):
     """Get equiformer calculator for run_pygsm.py"""
     return EquiformerCalculator(
-        device=device, 
+        device=device,
         ckpt_path=ckpt_path,
         config_path=config_path,
     )
@@ -125,7 +125,9 @@ def get_equiformer_calculator(device="cpu", ckpt_path=None, config_path=None):
 class EquiformerMLFF:
     """Equiformer calculator for pysisyphus"""
 
-    def __init__(self, device="cpu", ckpt_path=None, config_path=None, hessian_method="autograd"):
+    def __init__(
+        self, device="cpu", ckpt_path=None, config_path=None, hessian_method="autograd"
+    ):
         """
         Initialize Equiformer calculator
 
@@ -140,7 +142,7 @@ class EquiformerMLFF:
         """
         self.device = device
         self.hessian_method = hessian_method
-            
+
         self.model = EquiformerCalculator(
             ckpt_path=ckpt_path,
             device=device,
@@ -174,7 +176,7 @@ class EquiformerMLFF:
         # Convert ASE atoms to torch_geometric format
         batch = ase_atoms_to_torch_geometric(molecule)
         batch = batch.to(self.device)
-        
+
         # Prepare batch with extra properties for autograd
         batch = compute_extra_props(batch, pos_require_grad=True)
 

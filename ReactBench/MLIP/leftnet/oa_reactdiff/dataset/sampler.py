@@ -58,7 +58,7 @@ class DynamicBatchSampler(Sampler):
     ):
         if not isinstance(max_num, int) or max_num <= 0:
             raise ValueError(
-                f"`max_num` should be a positive integer value " "(got {max_num})."
+                f"`max_num` should be a positive integer value (got {{max_num}})."
             )
         self.mode_avail = ["node", "node^2"]
         self.mode_calc_map = {

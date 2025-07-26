@@ -193,7 +193,6 @@ class PotentialModule(LightningModule):
     def configure_gradient_clipping(
         self, optimizer, optimizer_idx, gradient_clip_val, gradient_clip_algorithm
     ):
-
         if not self.clip_grad:
             return
 

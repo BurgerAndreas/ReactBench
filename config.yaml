@@ -21,7 +21,7 @@ calc:          mace-pretrain   # select from the available MLFF calculators, lik
 ckpt_path: null
 config_path: null
 
-restart:       true
+restart:       false
 cleanup_results: false
 wandb: true
 

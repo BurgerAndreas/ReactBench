@@ -203,7 +203,7 @@ class DiffSchedule(nn.Module):
             raise ValueError(
                 f"Value for normalization value {norm_value} probably too "
                 f"large with sigma_0 {sigma_0:.5f} and "
-                f"1 / norm_value = {1. / norm_value}"
+                f"1 / norm_value = {1.0 / norm_value}"
             )
 
 

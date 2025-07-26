@@ -419,9 +419,9 @@ def get_loss_fn(
             huber_delta=args.huber_delta,
         )
     elif args.loss == "dipole":
-        assert (
-            dipole_only is True
-        ), "dipole loss can only be used with AtomicDipolesMACE model"
+        assert dipole_only is True, (
+            "dipole loss can only be used with AtomicDipolesMACE model"
+        )
         loss_fn = modules.DipoleSingleLoss(
             dipole_weight=args.dipole_weight,
         )
@@ -771,8 +771,7 @@ def create_error_table(
         torch.cuda.empty_cache()
         if log_wandb:
             wandb_log_dict = {
-                name
-                + "_final_rmse_e_per_atom": metrics["rmse_e_per_atom"]
+                name + "_final_rmse_e_per_atom": metrics["rmse_e_per_atom"]
                 * 1e3,  # meV / atom
                 name + "_final_rmse_f": metrics["rmse_f"] * 1e3,  # meV / A
                 name + "_final_rel_rmse_f": metrics["rel_rmse_f"],

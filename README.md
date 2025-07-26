@@ -39,7 +39,7 @@ ReactBench/
 
 ## Getting Started
 
-### Installation Guide
+### Installation Guide for Local Machine
 
 ```bash
 git clone git@github.com:deepprinciple/ReactBench.git
@@ -48,12 +48,17 @@ mamba create -n reactbench python=3.10
 mamba activate reactbench
 mamba install -y -c conda-forge openbabel
 
-mkdir dependencies # install pysisyphus and pygsm
-cd dependencies && git clone git@github.com:deepprinciple/pysisyphus.git && cd pysisyphus && git checkout reactbench 
+# install pysisyphus and pygsm
+mkdir dependencies 
+cd dependencies 
+git clone git@github.com:deepprinciple/pysisyphus.git 
+cd pysisyphus 
+git checkout reactbench 
 pip install -e .
 cd ..
 
-git clone git@github.com:deepprinciple/pyGSM.git && cd pyGSM
+git clone git@github.com:deepprinciple/pyGSM.git 
+cd pyGSM
 pip install -e .
 cd ../..
 
@@ -68,9 +73,75 @@ cd ../../..
 pip install -r environment.txt
 ```
 
+### Installation Guide for SLURM Cluster
+
+Install uv
+```bash
+curl -LsSf https://astral.sh/uv/install.sh | sh
+```
+
+```bash
+git clone git@github.com:BurgerAndreas/ReactBench.git
+cd ReactBench
+uv venv venv --python 3.11
+source venv/bin/activate
+
+module load cuda/12.6
+module load gcc/12.3
+module load rdkit/2023.09.5 openmm/8.2.0 openbabel/3.1.1 mctc-lib/0.3.1
+
+# install pysisyphus and pygsm
+mkdir dependencies 
+cd dependencies 
+git clone git@github.com:deepprinciple/pysisyphus.git 
+cd pysisyphus 
+git checkout reactbench 
+pip install -e .
+cd ..
+
+git clone git@github.com:deepprinciple/pyGSM.git 
+cd pyGSM
+pip install -e .
+cd ../..
+
+cd ReactBench/MLIP/leftnet/ # install leftnet env
+pip install -e .
+cd ../../..
+
+cd ReactBench/MLIP/mace/ # install mace env
+pip install -e .
+cd ../../..
+
+uv pip install -r environment.txt
+```
+
+I had problems with the compute canada version of wandb, so I installed it manually
+```bash
+pip uninstall wandb -y
+
+wget https://files.pythonhosted.org/packages/88/c9/41b8bdb493e5eda32b502bc1cc49d539335a92cacaf0ef304d7dae0240aa/wandb-0.20.1-py3-none-manylinux_2_17_x86_64.manylinux2014_x86_64.whl -O wandb-0.20.1-py3-none-any.whl
+
+PIP_CONFIG_FILE=/dev/null pip3 install wandb-0.20.1-py3-none-any.whl --force-reinstall --no-deps --no-build-isolation --no-cache-dir --no-index
+```
+
+Create a .env file in the root directory and set these variables (adjust as needed):
+```bash
+touch .env
+nano .env
+```
+```bash
+# .env
+HOMEROOT=${HOME}/ReactBench
+# some scratch space where we can write files during training. can be the same as HOMEROOT
+PROJECTROOT=${PROJECT}/ReactBench
+# the python environment to use (run `which python` to find it)
+PYTHONBIN=${HOME}/ReactBench/venv/bin/python
+WANDB_ENTITY=...
+MPLCONFIGDIR=${PROJECTROOT}/.matplotlib
+```
 
 
-### Usage
+### Setup
 
 1. First, test if the environment is properly set up by running sample data with LEFTNet or MACE calculator:
 
@@ -81,9 +152,36 @@ curl -L -o ckpt/leftnet-df.ckpt https://huggingface.co/yhong55/ReactBench/resolv
 curl -L -o ckpt/leftnet.ckpt https://huggingface.co/yhong55/ReactBench/resolve/main/leftnet.ckpt
 ```
 
-run
+Download HORM checkpoints with Energy-Force-Hessian Training
+```bash
+mkdir -p ckpt/horm
+wget https://huggingface.co/yhong55/HORM/resolve/main/eqv2.ckpt -O ckpt/horm/eqv2.ckpt
+wget https://huggingface.co/yhong55/HORM/resolve/main/left-df.ckpt -O ckpt/horm/left-df.ckpt
+wget https://huggingface.co/yhong55/HORM/resolve/main/left.ckpt -O ckpt/horm/left.ckpt
+wget https://huggingface.co/yhong55/HORM/resolve/main/alpha.ckpt -O ckpt/horm/alpha.ckpt
+```
+
+Download Transition1x validation subset recomputed, 960 datapoints
+```bash
+mkdir -p data 
+tar -xzf ts1x.tar.gz -C data
+find data/ts1x -type f | wc -l # 960
+```
+
+### Run
+
 ```bash
 python ReactBench/main.py config.yaml
+
+
+python ReactBench/main.py config.yaml --calc=leftnet 
+python ReactBench/main.py config.yaml --calc=leftnet --ckpt_path=ckpt/horm/left.ckpt 
+
+python ReactBench/main.py config.yaml --calc=leftnet-d 
+python ReactBench/main.py config.yaml --calc=leftnet-d --ckpt_path=ckpt/horm/left-df.ckpt 
+
+python ReactBench/main.py config.yaml --calc=equiformer
+--ckpt_path=ckpt/horm/eqv2.ckpt 
 ``` 
 
 calc can be: leftnet, leftnet-d, mace-pretrain, mace-finetuned

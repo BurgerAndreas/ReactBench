@@ -71,7 +71,7 @@ def analyze_outputs(
     # create record.txt to write the IRC result
     with open(f"{working_folder}/IRC-record.txt", "w") as g:
         g.write(
-            f'{"reaction":40s} {"R":<60s} {"P":<60s} {"type":<15s} {"barrier":<10s}\n'
+            f"{'reaction':40s} {'R':<60s} {'P':<60s} {'type':<15s} {'barrier':<10s}\n"
         )
 
     # loop over IRC output files
@@ -239,5 +239,5 @@ def analyze_outputs(
         rxn = reactions[rxn_ind]
         with open(f"{working_folder}/IRC-record.txt", "a") as g:
             g.write(
-                f'{rxn_ind:40s} {rxn["reactant"]:60s} {rxn["product"]:60s} {rxn["rtype"]:15s} {str(rxn["barrier"]):10s}\n'
+                f"{rxn_ind:40s} {rxn['reactant']:60s} {rxn['product']:60s} {rxn['rtype']:15s} {str(rxn['barrier']):10s}\n"
             )

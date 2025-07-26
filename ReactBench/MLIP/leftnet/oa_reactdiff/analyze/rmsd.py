@@ -114,7 +114,6 @@ def batch_rmsd_sb(
     threshold: float = 0.5,
     same_order: bool = True,
 ) -> List[float]:
-
     rmsds = []
 
     end_ind = np.cumsum(fragments_node.long().cpu().numpy())

@@ -155,7 +155,8 @@ class AtomicEnergiesBlock(torch.nn.Module):
         )  # [n_elements, n_heads]
 
     def forward(
-        self, x: torch.Tensor  # one-hot of elements [..., n_elements]
+        self,
+        x: torch.Tensor,  # one-hot of elements [..., n_elements]
     ) -> torch.Tensor:  # [..., ]
         return torch.matmul(x, torch.atleast_2d(self.atomic_energies).T)
 
@@ -317,7 +318,7 @@ class TensorProductWeightsBlock(torch.nn.Module):
 
     def __repr__(self):
         return (
-            f'{self.__class__.__name__}(shape=({", ".join(str(s) for s in self.weights.shape)}), '
+            f"{self.__class__.__name__}(shape=({', '.join(str(s) for s in self.weights.shape)}), "
             f"weights={np.prod(self.weights.shape)})"
         )
 

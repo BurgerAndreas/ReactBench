@@ -742,9 +742,9 @@ class AtomicDipolesMACE(torch.nn.Module):
 
         for i in range(num_interactions - 1):
             if i == num_interactions - 2:
-                assert (
-                    len(hidden_irreps) > 1
-                ), "To predict dipoles use at least l=1 hidden_irreps"
+                assert len(hidden_irreps) > 1, (
+                    "To predict dipoles use at least l=1 hidden_irreps"
+                )
                 hidden_irreps_out = str(
                     hidden_irreps[1]
                 )  # Select only l=1 vectors for last layer
@@ -941,9 +941,9 @@ class EnergyDipolesMACE(torch.nn.Module):
 
         for i in range(num_interactions - 1):
             if i == num_interactions - 2:
-                assert (
-                    len(hidden_irreps) > 1
-                ), "To predict dipoles use at least l=1 hidden_irreps"
+                assert len(hidden_irreps) > 1, (
+                    "To predict dipoles use at least l=1 hidden_irreps"
+                )
                 hidden_irreps_out = str(
                     hidden_irreps[:2]
                 )  # Select scalars and l=1 vectors for last layer

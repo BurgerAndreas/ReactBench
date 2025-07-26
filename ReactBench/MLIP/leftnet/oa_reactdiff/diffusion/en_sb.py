@@ -223,9 +223,7 @@ class EnSB(nn.Module):
         x1 = utils.remove_mean_batch(
             x1,
             cond["ts_mask"],
-        ).to(
-            r_pos.device
-        )  # remove mean from batch in case of Gaussian
+        ).to(r_pos.device)  # remove mean from batch in case of Gaussian
 
         if return_timesteps:
             # sample timestep for each sample among batch
@@ -508,7 +506,6 @@ class EnSB(nn.Module):
         verbose=False,
         ot_ode=True,
     ):
-
         # create discrete time steps that split [0, INTERVAL] into NFE sub-intervals.
         # e.g., if NFE=2 & INTERVAL=1000, then STEPS=[0, 500, 999] and 2 network
         # evaluations will be invoked, first from 999 to 500, then from 500 to 0.
@@ -672,7 +669,6 @@ class EnSB(nn.Module):
         verbose=True,
         cog_mask=None,
     ):
-
         xt = x1.detach()
 
         xs = []
@@ -706,7 +702,6 @@ class EnSB(nn.Module):
         self.prev_fv = []
 
         for idx, (t, step) in enumerate(zip(ts, steps)):
-
             pred_x0 = pred_x0_fn(xt, step)
             xt = self.EI_ODE(t, xt, pred_x0, idx, r, ot_ode=ot_ode)
             if cog_mask is not None:

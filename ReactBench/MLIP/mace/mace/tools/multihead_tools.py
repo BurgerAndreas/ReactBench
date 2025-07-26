@@ -47,7 +47,6 @@ class HeadConfig:
 def dict_head_to_dataclass(
     head: Dict[str, Any], head_name: str, args: argparse.Namespace
 ) -> HeadConfig:
-
     return HeadConfig(
         head_name=head_name,
         train_file=head.get("train_file", args.train_file),

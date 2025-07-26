@@ -203,42 +203,59 @@ def scatter(
 
 # torch_scatter/segment_coo.py
 
-def segment_sum_coo(src: torch.Tensor, index: torch.Tensor,
-                    out: Optional[torch.Tensor] = None,
-                    dim_size: Optional[int] = None) -> torch.Tensor:
+
+def segment_sum_coo(
+    src: torch.Tensor,
+    index: torch.Tensor,
+    out: Optional[torch.Tensor] = None,
+    dim_size: Optional[int] = None,
+) -> torch.Tensor:
     return torch.ops.torch_scatter.segment_sum_coo(src, index, out, dim_size)
 
 
-def segment_add_coo(src: torch.Tensor, index: torch.Tensor,
-                    out: Optional[torch.Tensor] = None,
-                    dim_size: Optional[int] = None) -> torch.Tensor:
+def segment_add_coo(
+    src: torch.Tensor,
+    index: torch.Tensor,
+    out: Optional[torch.Tensor] = None,
+    dim_size: Optional[int] = None,
+) -> torch.Tensor:
     return torch.ops.torch_scatter.segment_sum_coo(src, index, out, dim_size)
 
 
-def segment_mean_coo(src: torch.Tensor, index: torch.Tensor,
-                     out: Optional[torch.Tensor] = None,
-                     dim_size: Optional[int] = None) -> torch.Tensor:
+def segment_mean_coo(
+    src: torch.Tensor,
+    index: torch.Tensor,
+    out: Optional[torch.Tensor] = None,
+    dim_size: Optional[int] = None,
+) -> torch.Tensor:
     return torch.ops.torch_scatter.segment_mean_coo(src, index, out, dim_size)
 
 
 def segment_min_coo(
-        src: torch.Tensor, index: torch.Tensor,
-        out: Optional[torch.Tensor] = None,
-        dim_size: Optional[int] = None) -> Tuple[torch.Tensor, torch.Tensor]:
+    src: torch.Tensor,
+    index: torch.Tensor,
+    out: Optional[torch.Tensor] = None,
+    dim_size: Optional[int] = None,
+) -> Tuple[torch.Tensor, torch.Tensor]:
     return torch.ops.torch_scatter.segment_min_coo(src, index, out, dim_size)
 
 
 def segment_max_coo(
-        src: torch.Tensor, index: torch.Tensor,
-        out: Optional[torch.Tensor] = None,
-        dim_size: Optional[int] = None) -> Tuple[torch.Tensor, torch.Tensor]:
+    src: torch.Tensor,
+    index: torch.Tensor,
+    out: Optional[torch.Tensor] = None,
+    dim_size: Optional[int] = None,
+) -> Tuple[torch.Tensor, torch.Tensor]:
     return torch.ops.torch_scatter.segment_max_coo(src, index, out, dim_size)
 
 
-def segment_coo(src: torch.Tensor, index: torch.Tensor,
-                out: Optional[torch.Tensor] = None,
-                dim_size: Optional[int] = None,
-                reduce: str = "sum") -> torch.Tensor:
+def segment_coo(
+    src: torch.Tensor,
+    index: torch.Tensor,
+    out: Optional[torch.Tensor] = None,
+    dim_size: Optional[int] = None,
+    reduce: str = "sum",
+) -> torch.Tensor:
     r"""
     |
 
@@ -320,56 +337,63 @@ def segment_coo(src: torch.Tensor, index: torch.Tensor,
 
         torch.Size([10, 3, 64])
     """
-    if reduce == 'sum' or reduce == 'add':
+    if reduce == "sum" or reduce == "add":
         return segment_sum_coo(src, index, out, dim_size)
-    elif reduce == 'mean':
+    elif reduce == "mean":
         return segment_mean_coo(src, index, out, dim_size)
-    elif reduce == 'min':
+    elif reduce == "min":
         return segment_min_coo(src, index, out, dim_size)[0]
-    elif reduce == 'max':
+    elif reduce == "max":
         return segment_max_coo(src, index, out, dim_size)[0]
     else:
         raise ValueError
 
 
-def gather_coo(src: torch.Tensor, index: torch.Tensor,
-               out: Optional[torch.Tensor] = None) -> torch.Tensor:
+def gather_coo(
+    src: torch.Tensor, index: torch.Tensor, out: Optional[torch.Tensor] = None
+) -> torch.Tensor:
     return torch.ops.torch_scatter.gather_coo(src, index, out)
+
 
 # torch_scatter/segment_csr.py
 
-def segment_sum_csr(src: torch.Tensor, indptr: torch.Tensor,
-                    out: Optional[torch.Tensor] = None) -> torch.Tensor:
+
+def segment_sum_csr(
+    src: torch.Tensor, indptr: torch.Tensor, out: Optional[torch.Tensor] = None
+) -> torch.Tensor:
     return torch.ops.torch_scatter.segment_sum_csr(src, indptr, out)
 
 
-def segment_add_csr(src: torch.Tensor, indptr: torch.Tensor,
-                    out: Optional[torch.Tensor] = None) -> torch.Tensor:
+def segment_add_csr(
+    src: torch.Tensor, indptr: torch.Tensor, out: Optional[torch.Tensor] = None
+) -> torch.Tensor:
     return torch.ops.torch_scatter.segment_sum_csr(src, indptr, out)
 
 
-def segment_mean_csr(src: torch.Tensor, indptr: torch.Tensor,
-                     out: Optional[torch.Tensor] = None) -> torch.Tensor:
+def segment_mean_csr(
+    src: torch.Tensor, indptr: torch.Tensor, out: Optional[torch.Tensor] = None
+) -> torch.Tensor:
     return torch.ops.torch_scatter.segment_mean_csr(src, indptr, out)
 
 
 def segment_min_csr(
-        src: torch.Tensor, indptr: torch.Tensor,
-        out: Optional[torch.Tensor] = None
+    src: torch.Tensor, indptr: torch.Tensor, out: Optional[torch.Tensor] = None
 ) -> Tuple[torch.Tensor, torch.Tensor]:
     return torch.ops.torch_scatter.segment_min_csr(src, indptr, out)
 
 
 def segment_max_csr(
-        src: torch.Tensor, indptr: torch.Tensor,
-        out: Optional[torch.Tensor] = None
+    src: torch.Tensor, indptr: torch.Tensor, out: Optional[torch.Tensor] = None
 ) -> Tuple[torch.Tensor, torch.Tensor]:
     return torch.ops.torch_scatter.segment_max_csr(src, indptr, out)
 
 
-def segment_csr(src: torch.Tensor, indptr: torch.Tensor,
-                out: Optional[torch.Tensor] = None,
-                reduce: str = "sum") -> torch.Tensor:
+def segment_csr(
+    src: torch.Tensor,
+    indptr: torch.Tensor,
+    out: Optional[torch.Tensor] = None,
+    reduce: str = "sum",
+) -> torch.Tensor:
     r"""
     Reduces all values from the :attr:`src` tensor into :attr:`out` within the
     ranges specified in the :attr:`indptr` tensor along the last dimension of
@@ -432,18 +456,19 @@ def segment_csr(src: torch.Tensor, indptr: torch.Tensor,
 
         torch.Size([10, 3, 64])
     """
-    if reduce == 'sum' or reduce == 'add':
+    if reduce == "sum" or reduce == "add":
         return segment_sum_csr(src, indptr, out)
-    elif reduce == 'mean':
+    elif reduce == "mean":
         return segment_mean_csr(src, indptr, out)
-    elif reduce == 'min':
+    elif reduce == "min":
         return segment_min_csr(src, indptr, out)[0]
-    elif reduce == 'max':
+    elif reduce == "max":
         return segment_max_csr(src, indptr, out)[0]
     else:
         raise ValueError
 
 
-def gather_csr(src: torch.Tensor, indptr: torch.Tensor,
-               out: Optional[torch.Tensor] = None) -> torch.Tensor:
+def gather_csr(
+    src: torch.Tensor, indptr: torch.Tensor, out: Optional[torch.Tensor] = None
+) -> torch.Tensor:
     return torch.ops.torch_scatter.gather_csr(src, indptr, out)

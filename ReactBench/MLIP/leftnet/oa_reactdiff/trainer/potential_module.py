@@ -194,7 +194,6 @@ class PotentialModule(LightningModule):
         self.val_step_outputs.append(outputs)
 
     def on_validation_epoch_end(self):
-
         val_epoch_metrics = average_over_batch_metrics(self.val_step_outputs)
         if self.trainer.is_global_zero:
             pretty_print(self.current_epoch, val_epoch_metrics, prefix="val")
@@ -211,7 +210,6 @@ class PotentialModule(LightningModule):
         gradient_clip_val,
         gradient_clip_algorithm,
     ):
-
         if not self.clip_grad:
             return
 

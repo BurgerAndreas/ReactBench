@@ -7,7 +7,6 @@ import numpy as np
 # TODO: This code is just copied over diffSBDD and has not been modified at all...
 class DoubleDistributionNodes:
     def __init__(self, histogram):
-
         histogram = torch.tensor(histogram).float()
         histogram = histogram + 1e-3  # for numerical stability
 
@@ -85,7 +84,6 @@ class DoubleDistributionNodes:
 
 class SingleDistributionNodes:
     def __init__(self, histogram):
-
         self.n_nodes = []
         prob = []
         self.keys = {}

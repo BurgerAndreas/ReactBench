@@ -323,7 +323,6 @@ class EquiUpdate(nn.Module):
         # self.xvec_proj[2].bias.data.fill_(0)
 
     def forward(self, x, vec, nodeframe):
-
         vec = self.vec_proj(vec)
         vec1, vec2 = torch.split(vec, self.hidden_channels, dim=-1)
 
@@ -608,7 +607,7 @@ class LEFTNet(torch.nn.Module):
         for_conf: bool = False,
         ff: bool = False,
         object_aware: bool = True,
-        **kwargs
+        **kwargs,
     ):
         super(LEFTNet, self).__init__()
         self.num_layers = num_layers

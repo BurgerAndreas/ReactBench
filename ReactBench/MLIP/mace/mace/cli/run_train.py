@@ -116,9 +116,9 @@ def run(args: argparse.Namespace) -> None:
     model_foundation: Optional[torch.nn.Module] = None
     if args.foundation_model is not None:
         if args.multiheads_finetuning:
-            assert (
-                args.E0s != "average"
-            ), "average atomic energies cannot be used for multiheads finetuning"
+            assert args.E0s != "average", (
+                "average atomic energies cannot be used for multiheads finetuning"
+            )
         if args.foundation_model in ["small", "medium", "large"]:
             logging.info(
                 f"Using foundation model mace-mp-0 {args.foundation_model} as initial checkpoint."
@@ -191,9 +191,9 @@ def run(args: argparse.Namespace) -> None:
         # Data preparation
         if check_path_ase_read(head_config.train_file):
             if head_config.valid_file is not None:
-                assert check_path_ase_read(
-                    head_config.valid_file
-                ), "valid_file if given must be same format as train_file"
+                assert check_path_ase_read(head_config.valid_file), (
+                    "valid_file if given must be same format as train_file"
+                )
             config_type_weights = get_config_type_weights(
                 head_config.config_type_weights
             )

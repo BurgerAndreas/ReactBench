@@ -8,3 +8,5 @@ data/ts1x
 data/*
 
 wandb/
+
+.ruff_cache/

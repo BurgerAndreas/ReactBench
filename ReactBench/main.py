@@ -41,12 +41,14 @@ def main(args: dict):
     nprocs = int(args["nprocs"])
     charge = args.get("charge", 0)
     multiplicity = args.get("multiplicity", 1)
-    
+
     # check that nprocs is smaller than the number of cpus on the machine
     max_cpus = mp.cpu_count()
     if nprocs > max_cpus:
         print(f"ERROR: nprocs ({nprocs}) exceeds available CPU cores ({max_cpus})")
-        print(f"Recommended: Use at most {max_cpus - 2} cores to maintain system stability")
+        print(
+            f"Recommended: Use at most {max_cpus - 2} cores to maintain system stability"
+        )
         nprocs = max_cpus - 2
 
     # initialiazation
@@ -54,7 +56,7 @@ def main(args: dict):
         scratch = os.path.join(os.getcwd(), scratch)
     scratch_opt = f"{scratch}/scratch"
     args["scratch_opt"] = scratch_opt
-    
+
     # Cleanup results if specified in config
     if args.get("restart", False):
         print(f"\nCleaning up results directory: {scratch}")
@@ -63,7 +65,7 @@ def main(args: dict):
             print("Results cleanup completed successfully.")
         except Exception as e:
             print(f"Warning: Failed to cleanup results directory: {e}")
-    
+
     if args.get("wandb", False):
         wandb.init(project="reactbench", name=scratch, config=args)
 
@@ -176,17 +178,15 @@ def main(args: dict):
 
     # reporting GSM wall-time
     end = time.time()
-    print(f"Total running time: {end-start}s")
-    logger.info(f"Total running time: {end-start}s\n")
+    print(f"Total running time: {end - start}s")
+    logger.info(f"Total running time: {end - start}s\n")
 
     # Analyze the output
     analyze_outputs(scratch, irc_jobs, logger, charge=charge)
     logger.info(f"All reaction information is stored in {scratch}/IRC-record.txt")
 
     print("All calculations are done!")
-    logger.info(
-        "All calculations are done!"
-    )
+    logger.info("All calculations are done!")
 
     print("\n=== Final Results ===")
     print(f"Number of input reactions:             {len(rxns_confs)}")
@@ -238,6 +238,16 @@ def main(args: dict):
         with open(irc_record, "r") as f:
             intended_count = sum(line.count("Intended") for line in f)
         print(f"Number of intended reactions:          {intended_count}")
+
+    # summarize into a dictionary
+    ts_success_dict = {
+        "ts_success": ts_success,
+        "convert_ts": convert_ts,
+        "irc_success": irc_success,
+        "intended_count": intended_count,
+    }
+    if (wandb.run is not None) and (mp.current_process().name == "MainProcess"):
+        wandb.log(ts_success_dict, step=0)
 
     # Cleanup results if specified in config
     if args.get("cleanup_results", False):
@@ -332,7 +342,7 @@ def ts_calc(
         multiplicity=multiplicity,
         charge=charge,
     )
-    tsopt_job.generate_input(calctype=f'mlff-{args["calc"]}', hess=True, hess_step=1)
+    tsopt_job.generate_input(calctype=f"mlff-{args['calc']}", hess=True, hess_step=1)
 
     # run ts-opt job
     start = time.time()
@@ -369,11 +379,11 @@ def ts_calc(
     )
     if os.path.isfile(f"{tsopt_job.work_folder}/ts_final_hessian.h5"):
         irc_job.generate_input(
-            calctype=f'mlff-{args["calc"]}',
+            calctype=f"mlff-{args['calc']}",
             hess_init=f"{tsopt_job.work_folder}/ts_final_hessian.h5",
         )
     else:
-        irc_job.generate_input(calctype=f'mlff-{args["calc"]}')
+        irc_job.generate_input(calctype=f"mlff-{args['calc']}")
 
     # run irc job
     start = time.time()
@@ -381,9 +391,17 @@ def ts_calc(
     end = time.time()
     logger.info(result)
 
-    if args.get("wandb", False):
-        wandb.log(result)
-        
+    # Count completed jobs based on saved results
+    completed_jobs = len(
+        [
+            d
+            for d in os.listdir(scratch)
+            if os.path.isdir(os.path.join(scratch, d))
+            and d not in ["init_rxns", "scratch"]
+        ]
+    )
+    print(f"{completed_jobs} jobs finished")
+
     return (rxn_ind, tsopt_job, irc_job)
 
 
@@ -392,7 +410,7 @@ if __name__ == "__main__":
     parameters = yaml.load(open(parameters_yaml, "r"), Loader=yaml.FullLoader)
 
     # Parse additional command line arguments for parameter overrides
-    # Format: --key=value 
+    # Format: --key=value
     i = 2
     while i < len(sys.argv):
         arg = sys.argv[i]

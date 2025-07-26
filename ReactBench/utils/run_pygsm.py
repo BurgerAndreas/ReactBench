@@ -61,7 +61,7 @@ def parse_arguments(verbose=True):
         "-calc",
         default="leftnet",
         type=str,
-        help=f'select a calculator from {", ".join(AVAILABLE_CALCULATORS)}',
+        help=f"select a calculator from {', '.join(AVAILABLE_CALCULATORS)}",
         required=False,
     )
     parser.add_argument(
@@ -652,7 +652,6 @@ def print_msg():
 
 
 def main():
-
     # argument parsing and header
     inpfileq = parse_arguments(verbose=True)
 
