@@ -96,32 +96,37 @@ cd dependencies
 git clone git@github.com:deepprinciple/pysisyphus.git 
 cd pysisyphus 
 git checkout reactbench 
-pip install -e .
+uv pip install -e .
 cd ..
 
 git clone git@github.com:deepprinciple/pyGSM.git 
 cd pyGSM
-pip install -e .
+uv pip install -e .
 cd ../..
 
 cd ReactBench/MLIP/leftnet/ # install leftnet env
-pip install -e .
+uv pip install -e .
 cd ../../..
 
 cd ReactBench/MLIP/mace/ # install mace env
-pip install -e .
+uv pip install -e .
 cd ../../..
+
+# git clone git@github.com:BurgerAndreas/gad-ff.git
+cd ../gad-ff
+uv pip install -e .
+cd ../ReactBench
 
 uv pip install -r environment.txt
 ```
 
 I had problems with the compute canada version of wandb, so I installed it manually
 ```bash
-pip uninstall wandb -y
+uv pip uninstall wandb -y
 
 wget https://files.pythonhosted.org/packages/88/c9/41b8bdb493e5eda32b502bc1cc49d539335a92cacaf0ef304d7dae0240aa/wandb-0.20.1-py3-none-manylinux_2_17_x86_64.manylinux2014_x86_64.whl -O wandb-0.20.1-py3-none-any.whl
 
-PIP_CONFIG_FILE=/dev/null pip3 install wandb-0.20.1-py3-none-any.whl --force-reinstall --no-deps --no-build-isolation --no-cache-dir --no-index
+PIP_CONFIG_FILE=/dev/null uv pip install wandb-0.20.1-py3-none-any.whl --force-reinstall --no-deps --no-build-isolation --no-cache-dir --no-index
 ```
 
 Create a .env file in the root directory and set these variables (adjust as needed):
@@ -131,14 +136,16 @@ nano .env
 ```
 ```bash
 # .env
-HOMEROOT=${HOME}/ReactBench
+HOMEROOT=${PROJECT}/ReactBench
 # some scratch space where we can write files during training. can be the same as HOMEROOT
 PROJECTROOT=${PROJECT}/ReactBench
 # the python environment to use (run `which python` to find it)
-PYTHONBIN=${HOME}/ReactBench/venv/bin/python
-WANDB_ENTITY=...
+PYTHONBIN=${PROJECT}/ReactBench/venv/bin
+# WANDB_ENTITY=...
 MPLCONFIGDIR=${PROJECTROOT}/.matplotlib
 ```
+ctrl+s
+ctrl+x
 
 
 ### Setup
@@ -184,8 +191,21 @@ python ReactBench/main.py config.yaml --calc=equiformer
 --ckpt_path=ckpt/horm/eqv2.ckpt 
 ``` 
 
-calc can be: leftnet, leftnet-d, mace-pretrain, mace-finetuned
+```bash
+sbatch killarney.sh ReactBench/main.py config.yaml
 
+sbatch killarney.sh ReactBench/main.py config.yaml --calc=leftnet
+sbatch killarney.sh ReactBench/main.py config.yaml --calc=leftnet --ckpt_path=ckpt/horm/left.ckpt
+
+sbatch killarney.sh ReactBench/main.py config.yaml --calc=leftnet-d
+sbatch killarney.sh ReactBench/main.py config.yaml --calc=leftnet-d --ckpt_path=ckpt/horm/left-df.ckpt
+
+sbatch killarney.sh ReactBench/main.py config.yaml --calc=equiformer
+sbatch killarney.sh ReactBench/main.py config.yaml --calc=equiformer --ckpt_path=ckpt/horm/eqv2.ckpt
+```
+
+
+calc can be: leftnet, leftnet-d, mace-pretrain, mace-finetuned, equiformer
 
 2. To test other MLIPs, you can create your own calculator by following these steps:
 

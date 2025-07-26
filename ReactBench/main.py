@@ -44,13 +44,17 @@ def main(args: dict):
 
     # check that nprocs is smaller than the number of cpus on the machine
     max_cpus = mp.cpu_count()
+    if nprocs == "auto":
+        nprocs = max_cpus - 2
+        args["nprocs"] = nprocs
     if nprocs > max_cpus:
         print(f"ERROR: nprocs ({nprocs}) exceeds available CPU cores ({max_cpus})")
         print(
             f"Recommended: Use at most {max_cpus - 2} cores to maintain system stability"
         )
         nprocs = max_cpus - 2
-
+        args["nprocs"] = nprocs
+        
     # initialiazation
     if scratch[0] != "/":
         scratch = os.path.join(os.getcwd(), scratch)
@@ -246,8 +250,8 @@ def main(args: dict):
         "irc_success": irc_success,
         "intended_count": intended_count,
     }
-    if (wandb.run is not None) and (mp.current_process().name == "MainProcess"):
-        wandb.log(ts_success_dict, step=0)
+    if (wandb.run is not None):
+        wandb.log(ts_success_dict)
 
     # Cleanup results if specified in config
     if args.get("cleanup_results", False):
@@ -401,6 +405,8 @@ def ts_calc(
         ]
     )
     print(f"{completed_jobs} jobs finished")
+    if (wandb.run is not None):
+        wandb.log({"completed_jobs": completed_jobs})
 
     return (rxn_ind, tsopt_job, irc_job)
 
