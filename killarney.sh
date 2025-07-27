@@ -15,8 +15,9 @@ source ${PYTHONBIN}/activate
 # get environment variables
 source .env
 
-#module load cuda/12.6
-#module load gcc/12.3
+module load cuda/12.6
+module load gcc/12.3
+module load rdkit/2023.09.5 openmm/8.2.0 openbabel/3.1.1 mctc-lib/0.3.1
 
 echo `date`: Job $SLURM_JOB_ID is allocated resources.
 echo "Inside slurm_launcher.slrm ($0). received arguments: $@"
