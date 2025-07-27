@@ -10,3 +10,6 @@ data/*
 wandb/
 
 .ruff_cache/
+.cursor/
+
+scratch/

@@ -155,8 +155,8 @@ ctrl+x
 Download the LeftNet checkpoint from [hugging face](https://huggingface.co/yhong55/ReactBench/tree/main) and place it in the `ckpt` folder.
 ```bash
 mkdir ckpt
-curl -L -o ckpt/leftnet-df.ckpt https://huggingface.co/yhong55/ReactBench/resolve/main/leftnet-df.ckpt 
-curl -L -o ckpt/leftnet.ckpt https://huggingface.co/yhong55/ReactBench/resolve/main/leftnet.ckpt
+wget https://huggingface.co/yhong55/ReactBench/resolve/main/leftnet-df.ckpt -O ckpt/leftnet-df.ckpt
+wget https://huggingface.co/yhong55/ReactBench/resolve/main/leftnet.ckpt -O ckpt/leftnet.ckpt
 ```
 
 Download HORM checkpoints with Energy-Force-Hessian Training

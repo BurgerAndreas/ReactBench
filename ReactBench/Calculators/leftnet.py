@@ -9,13 +9,16 @@ from ReactBench.MLIP.leftnet.oa_reactdiff.trainer.calculator import (
 
 
 # get leftnet calculator for run_pygsm.py
-def get_leftnet_calculator(device="cpu", use_autograd=True):
-    # ReactBench/Calculators/
-    this_file_dir = os.path.dirname(os.path.abspath(__file__))
-    # ReactBench/
-    proj_root_dir = os.path.dirname(this_file_dir)
+def get_leftnet_calculator(device="cpu", use_autograd=True, ckpt_path=None):
+    if ckpt_path is None:
+        # ReactBench/Calculators/
+        this_file_dir = os.path.dirname(os.path.abspath(__file__))
+        # ReactBench/
+        proj_root_dir = os.path.dirname(os.path.dirname(this_file_dir))
+        ckpt_path = f"{proj_root_dir}/ckpt/leftnet.ckpt"
+        print(f"Using default checkpoint for LeftNet: {ckpt_path}")
     return LeftNetCalculator(
-        f"{proj_root_dir}/ckpt/leftnet.ckpt", device=device, use_autograd=use_autograd
+        ckpt_path, device=device, use_autograd=use_autograd
     )
 
 

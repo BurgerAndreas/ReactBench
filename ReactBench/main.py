@@ -27,6 +27,20 @@ from ReactBench.pysis import PYSIS
 from ReactBench.gsm import PYGSM
 
 
+# Generate run name based on calc and ckpt_path
+def generate_run_name(args):
+    calc = args.get("calc", "unknown")
+    ckpt_path = args.get("ckpt_path", "")
+    _name = ""
+    if ckpt_path:
+        parent_dir = os.path.basename(os.path.dirname(ckpt_path))
+        filename = os.path.basename(ckpt_path)
+        _name += f"{calc}_{parent_dir}_{filename}"
+    else:
+        _name += f"{calc}"
+    _name += "_" + os.path.basename(args["inp_path"])
+    return _name
+
 def main(args: dict):
     """
     Take the arguments from options and run YARP
@@ -37,23 +51,27 @@ def main(args: dict):
         print(f"Set REACTBENCH_PATH environment variable to: {args['reactbench_path']}")
 
     # load in parameters
-    scratch = args["scratch"]
-    nprocs = int(args["nprocs"])
     charge = args.get("charge", 0)
     multiplicity = args.get("multiplicity", 1)
+    
+    
+    # Set scratch directory
+    scratch = args["scratch"]
+    if scratch is None:
+        scratch = "scratch/" + generate_run_name(args)
+        args["scratch"] = scratch
 
     # check that nprocs is smaller than the number of cpus on the machine
     max_cpus = mp.cpu_count()
-    if nprocs == "auto":
-        nprocs = max_cpus - 2
-        args["nprocs"] = nprocs
-    if nprocs > max_cpus:
-        print(f"ERROR: nprocs ({nprocs}) exceeds available CPU cores ({max_cpus})")
+    if args["nprocs"] == "auto":
+        args["nprocs"] = max_cpus - 2
+    if args["nprocs"] > max_cpus:
+        print(f"ERROR: nprocs ({args['nprocs']}) exceeds available CPU cores ({max_cpus})")
         print(
             f"Recommended: Use at most {max_cpus - 2} cores to maintain system stability"
         )
-        nprocs = max_cpus - 2
-        args["nprocs"] = nprocs
+        args["nprocs"] = max_cpus - 2
+    nprocs = int(args["nprocs"])
         
     # initialiazation
     if scratch[0] != "/":
@@ -71,7 +89,9 @@ def main(args: dict):
             print(f"Warning: Failed to cleanup results directory: {e}")
 
     if args.get("wandb", False):
-        wandb.init(project="reactbench", name=scratch, config=args)
+        # Use the same naming convention for wandb as scratch
+        wandb_name = generate_run_name(args)
+        wandb.init(project="reactbench", name=wandb_name, config=args)
 
     # create folders
     if not os.path.exists(scratch):
@@ -316,6 +336,10 @@ def ts_calc(
     end = time.time()
     logger.info(result)
 
+    successful_gsm = len(glob(f'{scratch}/*/*TSguess.xyz'))
+    if (wandb.run is not None):
+        wandb.log({"successful_gsm": successful_gsm})
+    
     # check GSM job
     if gsm_job.calculation_terminated_successfully() is False:
         print(
@@ -353,6 +377,11 @@ def ts_calc(
     result = tsopt_job.execute(timeout=timeout)
     end = time.time()
     logger.info(result)
+    
+    # Count successful TS optimizations
+    completed_tsopt = len(glob(f"{scratch}/*/TSOPT"))
+    if (wandb.run is not None):
+        wandb.log({"completed_tsopt": completed_tsopt})
 
     # check ts-opt job
     if tsopt_job.calculation_terminated_normally() is False:
@@ -396,7 +425,7 @@ def ts_calc(
     logger.info(result)
 
     # Count completed jobs based on saved results
-    completed_jobs = len(
+    completed_irc = len(
         [
             d
             for d in os.listdir(scratch)
@@ -404,9 +433,9 @@ def ts_calc(
             and d not in ["init_rxns", "scratch"]
         ]
     )
-    print(f"{completed_jobs} jobs finished")
+    print(f"{completed_irc} jobs finished")
     if (wandb.run is not None):
-        wandb.log({"completed_jobs": completed_jobs})
+        wandb.log({"completed_irc": completed_irc})
 
     return (rxn_ind, tsopt_job, irc_job)
 
