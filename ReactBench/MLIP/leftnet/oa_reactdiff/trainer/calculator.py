@@ -5,7 +5,7 @@ import numpy as np
 from ase.calculators.calculator import Calculator, all_changes
 from oa_reactdiff.trainer.potential_module import PotentialModule
 from torch_geometric.data import Data
-
+import traceback
 
 def onehot_convert(atomic_numbers):
     """
@@ -49,6 +49,13 @@ def mols_to_batch(molecules):
     )
     return data
 
+def find_first_existing_parent_dir(path):
+    """
+    Find the first existing parent directory of a given path
+    """
+    while not os.path.exists(path):
+        path = os.path.dirname(path)
+    return path
 
 class LeftNetCalculator(Calculator):
     """LeftNet ASE Calculator.
@@ -81,11 +88,23 @@ class LeftNetCalculator(Calculator):
         self.use_autograd = use_autograd
         # load model
         self.device = device or ("cuda" if torch.cuda.is_available() else "cpu")
+        proj_root_dir = None
         if weight is None:
             this_file_dir = os.path.dirname(os.path.abspath(__file__))
-            proj_root_dir = os.path.dirname(this_file_dir)
-            weight = f"{proj_root_dir}/ckpt/leftnet.ckpt"
-        pm = PotentialModule.load_from_checkpoint(weight, map_location=self.device)
+            proj_root_dir = os.path.dirname(os.path.dirname(this_file_dir))
+            if use_autograd:
+                weight = f"{proj_root_dir}/ckpt/leftnet.ckpt"
+            else:
+                weight = f"{proj_root_dir}/ckpt/leftnet-df.ckpt"
+        if not os.path.exists(weight):
+            _path_dir = find_first_existing_parent_dir(weight)
+            raise FileNotFoundError(f"Model weight file {weight} not found. \nproj_root_dir={proj_root_dir}. \nFiles in {_path_dir}: \n{os.listdir(_path_dir)}")
+        try:
+            pm = PotentialModule.load_from_checkpoint(weight, map_location=self.device)
+        except Exception as e:
+            print(f"Error loading model weight file {weight}")
+            traceback.print_exc()
+            raise e
         pm.eval()
         self.model = pm.potential
 

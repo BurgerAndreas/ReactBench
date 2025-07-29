@@ -6,7 +6,6 @@ from glob import glob
 import yaml
 import logging
 import time
-import pyjokes
 import shutil
 
 import multiprocessing as mp
@@ -26,6 +25,17 @@ from ReactBench.main_functions import analyze_outputs
 from ReactBench.pysis import PYSIS
 from ReactBench.gsm import PYGSM
 
+def print_error_content(errlog, logger):
+    if os.path.exists(errlog):
+        with open(errlog, "r", encoding="utf-8") as f:
+            content = f.read().strip()
+            content = "\n# " + errlog + "\n" + content
+            content += "\n# ---"
+        print(content)
+        logger.info(content)
+    else:
+        print(f"Error log file {errlog} not found")
+        logger.info(f"Error log file {errlog} not found")
 
 # Generate run name based on calc and ckpt_path
 def generate_run_name(args):
@@ -34,8 +44,8 @@ def generate_run_name(args):
     _name = ""
     if ckpt_path:
         parent_dir = os.path.basename(os.path.dirname(ckpt_path))
-        filename = os.path.basename(ckpt_path)
-        _name += f"{calc}_{parent_dir}_{filename}"
+        filename = os.path.splitext(os.path.basename(ckpt_path))[0]
+        _name += f"{calc}_{parent_dir}{filename}"
     else:
         _name += f"{calc}"
     _name += "_" + os.path.basename(args["inp_path"])
@@ -153,7 +163,6 @@ def main(args: dict):
     logger.info(
         "================================================================================"
     )
-    logger.info("\N{THINKING FACE} " + pyjokes.get_joke())
 
     logger.info(
         "================================================================================"
@@ -164,7 +173,6 @@ def main(args: dict):
     logger.info(
         "================================================================================"
     )
-    logger.info("\N{NERD FACE} " + pyjokes.get_joke())
 
     ## Load in input rxns
     rxns_confs = [
@@ -342,12 +350,10 @@ def ts_calc(
     
     # check GSM job
     if gsm_job.calculation_terminated_successfully() is False:
-        print(
-            f"GSM job {gsm_job.jobname} fails to converge, please check this reaction..."
-        )
-        logger.info(
-            f"GSM job {gsm_job.jobname} fails to converge, please check this reaction..."
-        )
+        error_msg = f"GSM job {gsm_job.jobname} fails to converge, please check this reaction..."
+        print(error_msg)
+        logger.info(error_msg)
+        print_error_content(gsm_job.errlog, logger)
         return (rxn_ind, False, False)
 
     if gsm_job.find_correct_TS() is False:
@@ -387,6 +393,7 @@ def ts_calc(
     if tsopt_job.calculation_terminated_normally() is False:
         print(f"TSopt job {tsopt_job.jobname} fails, skip this reaction...")
         logger.info(f"TSopt job {tsopt_job.jobname} fails, skip this reaction...")
+        print_error_content(tsopt_job.errlog, logger)
         return (rxn_ind, False, False)
 
     if tsopt_job.is_true_ts() is False:
