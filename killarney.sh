@@ -16,6 +16,7 @@ source .env
 source ${PYTHONBIN}/activate
 
 which python
+echo ${PYTHONBIN}/python
 
 module load cuda/12.6
 module load gcc/12.3
@@ -27,4 +28,5 @@ echo "Inside slurm_launcher.slrm ($0). received arguments: $@"
 # hand over all arguments to the script
 echo "Submitting ${HOMEROOT}/$@"
 
-${PYTHONBIN}/python ${HOMEROOT}/"$@"
+# ${PYTHONBIN}/python ${HOMEROOT}/"$@"
+uv run ${HOMEROOT}/"$@"
