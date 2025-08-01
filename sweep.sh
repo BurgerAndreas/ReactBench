@@ -11,7 +11,7 @@ mamba activate reactbench
 # python ReactBench/main.py config.yaml --calc=equiformer --ckpt_path=/ssd/Code/gad-ff/ckpt/horm/eqv2.ckpt --inp_path=data # HORM checkpoint
 
 
-python ReactBench/main.py config.yaml 
+# python ReactBench/main.py config.yaml 
 python ReactBench/main.py config.yaml --calc=leftnet # H ML TS IP checkpoint
 python ReactBench/main.py config.yaml --calc=leftnet --ckpt_path=/ssd/Code/gad-ff/ckpt/left.ckpt # HORM checkpoint
 # python ReactBench/main.py config.yaml --calc=leftnet-d # H ML TS IP checkpoint

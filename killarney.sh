@@ -15,6 +15,8 @@ source .env
 # activate venv
 source ${PYTHONBIN}/activate
 
+which python
+
 module load cuda/12.6
 module load gcc/12.3
 module load rdkit/2023.09.5 openmm/8.2.0 openbabel/3.1.1 mctc-lib/0.3.1

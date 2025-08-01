@@ -118,6 +118,7 @@ uv pip install -e .
 cd ../ReactBench
 
 uv pip install -r environment.txt
+# uv pip install torch-cluster --no-build-isolation
 ```
 
 I had problems with the compute canada version of wandb, so I installed it manually
