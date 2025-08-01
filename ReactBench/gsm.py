@@ -238,6 +238,24 @@ class PYGSM:
                     return True
         return False
 
+    def read_error_content(self) -> str:
+        """Read error content from the error log file.
+
+        Returns:
+            str: Error content if file exists and has content, empty string otherwise
+        """
+        if not os.path.isfile(self.errlog):
+            return ""
+        
+        try:
+            with open(self.errlog, "r", encoding="utf-8") as f:
+                content = f.read().strip()
+                content = "# " + self.errlog + "\n" + content
+                content += "# ---" 
+                return content
+        except Exception:
+            return ""
+
     def find_correct_TS(self, tight=True) -> int:
         """Find the transition state node index.
         Inputs:

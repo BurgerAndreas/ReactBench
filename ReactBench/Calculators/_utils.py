@@ -21,10 +21,11 @@ def compute_hessian(coords, energy, forces=None):
     if forces is None:
         forces = -_get_derivatives_not_none(coords, energy, create_graph=True)
     # get number of element (n_atoms * 3)
-    n_comp = forces.view(-1).shape[0]
+    _forc = forces.reshape(-1)
+    n_comp = _forc.shape[0]
     # Initialize hessian
     hess = []
-    for f in forces.view(-1):
+    for f in _forc:
         # compute second-order derivative for each element
         hess_row = _get_derivatives_not_none(coords, -f, retain_graph=True)
         hess.append(hess_row)

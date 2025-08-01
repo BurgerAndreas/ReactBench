@@ -15,10 +15,13 @@ def get_leftnet_calculator(device="cpu", use_autograd=True, ckpt_path=None):
         this_file_dir = os.path.dirname(os.path.abspath(__file__))
         # ReactBench/
         proj_root_dir = os.path.dirname(os.path.dirname(this_file_dir))
-        ckpt_path = f"{proj_root_dir}/ckpt/leftnet.ckpt"
+        if use_autograd:
+            ckpt_path = f"{proj_root_dir}/ckpt/leftnet.ckpt"
+        else:
+            ckpt_path = f"{proj_root_dir}/ckpt/leftnet-df.ckpt"
         print(f"Using default checkpoint for LeftNet: {ckpt_path}")
     return LeftNetCalculator(
-        ckpt_path, device=device, use_autograd=use_autograd
+        weight=ckpt_path, device=device, use_autograd=use_autograd
     )
 
 
@@ -41,17 +44,20 @@ class LeftNetMLFF:
         self.use_autograd = use_autograd
         if ckpt_path is None:
             this_file_dir = os.path.dirname(os.path.abspath(__file__))
-            proj_root_dir = os.path.dirname(this_file_dir)
-            ckpt_path = f"{proj_root_dir}/ckpt/leftnet.ckpt"
+            proj_root_dir = os.path.dirname(os.path.dirname(this_file_dir))
+            if use_autograd:
+                ckpt_path = f"{proj_root_dir}/ckpt/leftnet.ckpt"
+            else:
+                ckpt_path = f"{proj_root_dir}/ckpt/leftnet-df.ckpt"
         if use_autograd:
             self.model = LeftNetCalculator(
-                ckpt_path,
+                weight=ckpt_path,
                 device=device,
                 use_autograd=use_autograd,
             )
         else:
             self.model = LeftNetCalculator(
-                ckpt_path,
+                weight=ckpt_path,
                 device=device,
                 use_autograd=use_autograd,
             )

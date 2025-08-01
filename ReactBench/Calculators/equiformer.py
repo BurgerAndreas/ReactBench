@@ -52,10 +52,14 @@ class EquiformerCalculator(Calculator):
             device = "cuda" if torch.cuda.is_available() else "cpu"
         self.device = device
 
+        root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        root_dir = os.path.dirname(root_dir)
+
         # Load model
         if config_path is None:
             # Try multiple possible locations for config file
             config_path = "../gad-ff/configs/equiformer_v2.yaml"
+            config_path = os.path.join(root_dir, config_path)
         config_path = os.path.abspath(config_path)
         with open(config_path, "r") as file:
             config = yaml.safe_load(file)
@@ -65,6 +69,7 @@ class EquiformerCalculator(Calculator):
         # Load model weights
         if ckpt_path is None:
             ckpt_path = "../gad-ff/ckpt/eqv2.ckpt"
+            ckpt_path = os.path.join(root_dir, ckpt_path)
         ckpt_path = os.path.abspath(ckpt_path)
         state_dict = torch.load(ckpt_path, weights_only=True)["state_dict"]
         state_dict = {k.replace("potential.", ""): v for k, v in state_dict.items()}
