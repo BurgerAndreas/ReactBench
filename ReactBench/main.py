@@ -377,7 +377,9 @@ def ts_calc(
     # check GSM job
     if gsm_job.calculation_terminated_successfully() is False:
         error_msg = f"GSM job {gsm_job.jobname} fails to converge, please check this reaction..."
+        print(gsm_job.errlog)
         print(error_msg)
+        logger.info(gsm_job.errlog)
         logger.info(error_msg)
         print_error_content(gsm_job.errlog, logger)
         return (rxn_ind, False, False)

@@ -197,7 +197,8 @@ class PYGSM:
             if result.returncode == 0:
                 msg = f"GSM job {self.jobname} finished in {execution_time:.1f}s"
             else:
-                msg = f"GSM job {self.jobname} failed. Check log file for details."
+                msg = f"GSM job {self.jobname} failed. returncode: {result.returncode}. Check log file for details."
+                msg += f"\nresult: \n{result}"
 
             return msg
 
