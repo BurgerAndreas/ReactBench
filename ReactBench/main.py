@@ -25,6 +25,16 @@ from ReactBench.main_functions import analyze_outputs
 from ReactBench.pysis import PYSIS
 from ReactBench.gsm import PYGSM
 
+class DummyLogger:
+    def __init__(self, *args, **kwargs):
+        self.info = lambda x: None
+        self.warning = lambda x: None
+        self.error = lambda x: None
+        self.critical = lambda x: None
+        self.debug = lambda x: None
+        self.exception = lambda x: None
+        self.fatal = lambda x: None
+
 def print_error_content(errlog, logger):
     if os.path.exists(errlog):
         with open(errlog, "r", encoding="utf-8") as f:
@@ -102,133 +112,139 @@ def main(args: dict):
         # Use the same naming convention for wandb as scratch
         wandb_name = generate_run_name(args)
         wandb.init(project="reactbench", name=wandb_name, config=args)
+        
+    if args.get("only_cnt_results", False):
+        logger = DummyLogger()
+    else:
+        # create folders
+        if not os.path.exists(scratch):
+            os.mkdir(scratch)
+        if not os.path.exists(scratch_opt):
+            os.mkdir(scratch_opt)
 
-    # create folders
-    if not os.path.exists(scratch):
-        os.mkdir(scratch)
-    if not os.path.exists(scratch_opt):
-        os.mkdir(scratch_opt)
+        # create init_rxns folder and copy input files
+        if not os.path.exists(f"{scratch}/init_rxns"):
+            os.makedirs(f"{scratch}/init_rxns")
+        for f in os.listdir(args["inp_path"]):
+            if f.endswith(".xyz"):
+                os.system(f"cp {args['inp_path']}/{f} {scratch}/init_rxns/")
 
-    # create init_rxns folder and copy input files
-    if not os.path.exists(f"{scratch}/init_rxns"):
-        os.makedirs(f"{scratch}/init_rxns")
-    for f in os.listdir(args["inp_path"]):
-        if f.endswith(".xyz"):
-            os.system(f"cp {args['inp_path']}/{f} {scratch}/init_rxns/")
+        # initialize logging file
+        logging_path = os.path.join(scratch, "YARPrun.log")
+        logging_queue = mp.Manager().Queue(999)
+        logger_p = mp.Process(
+            target=logger_process, args=(logging_queue, logging_path), daemon=True
+        )
+        logger_p.start()
+        start = time.time()
 
-    # initialize logging file
-    logging_path = os.path.join(scratch, "YARPrun.log")
-    logging_queue = mp.Manager().Queue(999)
-    logger_p = mp.Process(
-        target=logger_process, args=(logging_queue, logging_path), daemon=True
-    )
-    logger_p.start()
-    start = time.time()
+        # logger in the main process
+        logger = logging.getLogger("main")
+        logger.addHandler(QueueHandler(logging_queue))
+        logger.setLevel(logging.INFO)
 
-    # logger in the main process
-    logger = logging.getLogger("main")
-    logger.addHandler(QueueHandler(logging_queue))
-    logger.setLevel(logging.INFO)
+        # print head of the program
+        logger.info(
+            r"""Welcome to
+                    __   __ _    ____  ____  
+                    \ \ / // \  |  _ \|  _ \ 
+                    \ V // _ \ | |_) | |_) |
+                    | |/ ___ \|  _ <|  __/ 
+                    |_/_/   \_\_| \_\_|
+                            // Yet Another Reaction Program
+            """
+        )
+        logger.info(
+            "================================================================================"
+        )
+        logger.info(
+            "                               INPUT PARAMETERS                                 "
+        )
+        logger.info(
+            "================================================================================"
+        )
+        for key, val in args.items():
+            line = str(key) + ": " + str(val)
+            logger.info(line)
 
-    # print head of the program
-    logger.info(
-        r"""Welcome to
-                __   __ _    ____  ____  
-                \ \ / // \  |  _ \|  _ \ 
-                 \ V // _ \ | |_) | |_) |
-                  | |/ ___ \|  _ <|  __/ 
-                  |_/_/   \_\_| \_\_|
-                          // Yet Another Reaction Program
-        """
-    )
-    logger.info(
-        "================================================================================"
-    )
-    logger.info(
-        "                               INPUT PARAMETERS                                 "
-    )
-    logger.info(
-        "================================================================================"
-    )
-    for key, val in args.items():
-        line = str(key) + ": " + str(val)
-        logger.info(line)
-
-    logger.info(
-        "\n================================================================================"
-    )
-    logger.info(
-        "                           PARSING INPUT REACTIONS                              "
-    )
-    logger.info(
-        "================================================================================"
-    )
-
-    logger.info(
-        "================================================================================"
-    )
-    logger.info(
-        "                        RUNNING GROWING STRING METHODS                          "
-    )
-    logger.info(
-        "================================================================================"
-    )
-
-    ## Load in input rxns
-    rxns_confs = [
-        rxn for rxn in sorted(os.listdir(f"{scratch}/init_rxns")) if rxn[-4:] == ".xyz"
-    ]
-    thread = min(nprocs, len(rxns_confs))
-    input_job_list = []
-
-    # preparing and running GSM calculations
-    for count, rxn in enumerate(rxns_confs):
-        # prepare GSM-TSOPT-IRC job
-        rxn_ind = rxn.split(".xyz")[0]
-        input_job_list.append(
-            (
-                count,
-                rxn,
-                scratch,
-                args,
-                logging_queue,
-                args["gsm_wt"],
-                charge,
-                multiplicity,
-            )
+        logger.info(
+            "\n================================================================================"
+        )
+        logger.info(
+            "                           PARSING INPUT REACTIONS                              "
+        )
+        logger.info(
+            "================================================================================"
         )
 
-    # Run the tasks in parallel
-    jobs = Parallel(n_jobs=thread)(delayed(ts_calc)(*task) for task in input_job_list)
-    tsopt_jobs = {}
-    irc_jobs = []
-    for job in jobs:
-        if job[1] is False:
-            continue
-        tsopt_jobs[job[0]] = job[1]
-        irc_jobs.append(job[2])
+        logger.info(
+            "================================================================================"
+        )
+        logger.info(
+            "                        RUNNING GROWING STRING METHODS                          "
+        )
+        logger.info(
+            "================================================================================"
+        )
 
-    # reporting GSM wall-time
-    end = time.time()
-    print(f"Total running time: {end - start}s")
-    logger.info(f"Total running time: {end - start}s\n")
+        ## Load in input rxns
+        rxns_confs = [
+            rxn for rxn in sorted(os.listdir(f"{scratch}/init_rxns")) if rxn[-4:] == ".xyz"
+        ]
+        thread = min(nprocs, len(rxns_confs))
+        input_job_list = []
 
-    # Analyze the output
-    analyze_outputs(scratch, irc_jobs, logger, charge=charge)
-    logger.info(f"All reaction information is stored in {scratch}/IRC-record.txt")
+        # preparing and running GSM calculations
+        for count, rxn in enumerate(rxns_confs):
+            # prepare GSM-TSOPT-IRC job
+            rxn_ind = rxn.split(".xyz")[0]
+            input_job_list.append(
+                (
+                    count,
+                    rxn,
+                    scratch,
+                    args,
+                    logging_queue,
+                    args["gsm_wt"],
+                    charge,
+                    multiplicity,
+                )
+            )
 
-    print("All calculations are done!")
-    logger.info("All calculations are done!")
+        # Run the tasks in parallel
+        jobs = Parallel(n_jobs=thread)(delayed(ts_calc)(*task) for task in input_job_list)
+        tsopt_jobs = {}
+        irc_jobs = []
+        for job in jobs:
+            # (rxn_ind, tsopt_job, irc_job)
+            if job[1] is False:
+                continue
+            tsopt_jobs[job[0]] = job[1]
+            irc_jobs.append(job[2])
+
+        # reporting GSM wall-time
+        end = time.time()
+        print(f"Total running time: {end - start}s")
+        logger.info(f"Total running time: {end - start}s\n")
+
+        # Analyze the output
+        analyze_outputs(scratch, irc_jobs, logger, charge=charge)
+        logger.info(f"All reaction information is stored in {scratch}/IRC-record.txt")
+
+        print("All calculations are done!")
+        logger.info("All calculations are done!")
 
     print("\n=== Final Results ===")
     print(f"Number of input reactions:             {len(rxns_confs)}")
+    gsm_success = len(glob(f'{scratch}/*/*TSguess.xyz'))
     print(
-        f"Number of successful GSM calculations: {len(glob(f'{scratch}/*/*TSguess.xyz'))}"
+        f"Number of successful GSM calculations: {gsm_success}"
     )
 
     # Count successful TS optimizations
     ts_success = 0
     convert_ts = 0
+    converged_ts = 0
     for folder in glob(f"{scratch}/*/TSOPT"):
         with open(os.path.join(folder, "output.txt"), "r") as f:
             lines = f.readlines()
@@ -239,12 +255,15 @@ def main(args: dict):
                     if len(freq) == 1 and float(freq[0]) < -10:
                         ts_success += 1
                         true_ts = True
-                if "Converged!" in line and true_ts:
-                    convert_ts += 1
+                if "Converged!" in line:
+                    converged_ts += 1
+                    if true_ts:
+                        convert_ts += 1
 
     print(f"Number of successful TS optimizations: {ts_success}({convert_ts})")
 
     # Count successful IRC calculations
+    # TODO@Andreas ???
     irc_success = 0
     for folder in glob(f"{scratch}/*/IRC"):
         if not os.path.exists(os.path.join(folder, "output.txt")):
@@ -254,10 +273,16 @@ def main(args: dict):
             left = ts = right = 0
             for line in lines:
                 if "Left:" in line:
+                    if irc_success == 0:
+                        print(line)
                     left = float(line.split("kJ")[0].split(":")[1].strip())
                 elif "TS:" in line:
+                    if irc_success == 0:
+                        print(line)
                     ts = float(line.split("kJ")[0].split(":")[1].strip())
                 elif "Right:" in line:
+                    if irc_success == 0:
+                        print(line)
                     right = float(line.split("kJ")[0].split(":")[1].strip())
             if sum([left != 0, ts != 0, right != 0]) >= 2:
                 irc_success += 1
@@ -273,6 +298,7 @@ def main(args: dict):
 
     # summarize into a dictionary
     ts_success_dict = {
+        "gsm_success": gsm_success,
         "ts_success": ts_success,
         "convert_ts": convert_ts,
         "irc_success": irc_success,
@@ -372,6 +398,7 @@ def ts_calc(
         restart=args["pysis_restart"],
         jobname=gsm_job.jobname,
         jobtype="tsopt",
+        # method defaults to rsprfo
         exe=args["pysis_exe"],
         multiplicity=multiplicity,
         charge=charge,
