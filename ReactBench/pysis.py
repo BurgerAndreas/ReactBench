@@ -104,9 +104,9 @@ class PYSIS:
             work_folder = os.path.abspath(work_folder)
         self.input_geo = input_geo
         self.work_folder = work_folder
-        self.pysis_input = os.path.join(work_folder, f"{jobname}_input.yaml")
-        self.output = os.path.join(work_folder, "output.txt")
-        self.errlog = os.path.join(work_folder, f"{jobname}-{jobtype}.err")
+        self.pysis_input = os.path.join(work_folder, f"pysis_{jobname}_{jobtype}_input.yaml")
+        self.output = os.path.join(work_folder, f"pysis_{jobtype}_output.txt")
+        self.errlog = os.path.join(work_folder, f"pysis_{jobname}-{jobtype}.err")
         self.nproc = int(nproc)
         self.mem = int(mem)
         self.jobname = jobname
@@ -138,7 +138,7 @@ class PYSIS:
             freeze_atoms=freeze_atoms,
             calc_kwargs=calc_kwargs,
         )
-        print(f"PYSIS job {self.jobname} created input file: {self.pysis_input}")
+        # print(f"PYSIS job {self.jobname} created input file: {self.pysis_input}")
 
     def generate_calculator_settings(self, calctype="mlff-leftnet", calc_kwargs={}):
         """Generate calculator-specific settings for the input file.
@@ -155,7 +155,7 @@ class PYSIS:
                 f.write(
                     f"calc:\n type: mlff\n method: {method}\n pal: {self.nproc}\n mem: {self.mem}\n charge: {self.charge}\n mult: {self.multiplicity}\n"
                 )
-                # print(f"PYSIS job {self.jobname} got calc_kwargs: {calc_kwargs}")
+                # print(f"PYSIS job {self.jobname} {self.jobtype} got calc_kwargs: {calc_kwargs}")
                 for key, value in calc_kwargs.items():
                     f.write(f" {key}: {value}\n")
 
@@ -200,6 +200,7 @@ class PYSIS:
         hess=True,
         hess_step=3,
         hess_init=False,
+        calc_kwargs={},
     ):
         """Generate job-specific settings for PYSIS calculation.
 

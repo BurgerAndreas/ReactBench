@@ -30,7 +30,7 @@ wandb: true
 # input parameters for GSM
 gsm_restart:   True          # restart GSM jobs or not
 num_nodes:     9             # number of nodes in GSM string
-max_gsm_iters: 50            # maximum number of total iterations
+max_gsm_iters: 50            # maximum number of GSM iterations
 max_opt_steps: 5             # maximum optimization steps in each iteration
 add_node_tol:  0.1           # tol for adding a new node
 conv_tol:      0.0005        # tol for gradrms

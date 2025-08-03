@@ -15,7 +15,7 @@ from ase.calculators.calculator import Calculator
 from ase.data import atomic_numbers
 
 # Try to import Equiformer dependencies
-from ocpmodels.common.relaxation.ase_utils import ase_atoms_to_torch_geometric
+from ocpmodels.common.relaxation.ase_utils import ase_atoms_to_torch_geometric_hessian
 from nets.equiformer_v2.equiformer_v2_oc20 import EquiformerV2_OC20
 from nets.prediction_utils import compute_extra_props
 
@@ -47,6 +47,8 @@ class EquiformerCalculator(Calculator):
 
         # this is where all the calculated properties are stored
         self.results = {}
+        self.cnt_hessian_autograd = 0
+        self.cnt_hessian_predict = 0
 
         _args = {
             "ckpt_path": ckpt_path,
@@ -112,7 +114,12 @@ class EquiformerCalculator(Calculator):
         Calculator.calculate(self, atoms)
 
         # Convert ASE atoms to torch_geometric format
-        batch = ase_atoms_to_torch_geometric(atoms)
+        batch = ase_atoms_to_torch_geometric_hessian(
+            atoms,
+            cutoff=self.potential.cutoff,
+            max_neighbors=self.potential.max_neighbors,
+            use_pbc=self.potential.use_pbc,
+        )
         batch = batch.to(self.device)
 
         do_hessian = "hessian" in properties
@@ -182,6 +189,8 @@ class EquiformerMLFF:
         """
         self.device = device
         self.hessian_method = hessian_method
+        self.cnt_hessian_autograd = 0
+        self.cnt_hessian_predict = 0
 
         self.model = EquiformerCalculator(
             ckpt_path=ckpt_path,
@@ -216,7 +225,12 @@ class EquiformerMLFF:
     def get_hessian(self, molecule):
         """Get Hessian for pysisyphus interface"""
         # Convert ASE atoms to torch_geometric format
-        batch = ase_atoms_to_torch_geometric(molecule)
+        batch = ase_atoms_to_torch_geometric_hessian(
+            molecule,
+            cutoff=self.model.potential.cutoff,
+            max_neighbors=self.model.potential.max_neighbors,
+            use_pbc=self.model.potential.use_pbc,
+        )
         batch = batch.to(self.device)
 
         # Prepare batch with extra properties for autograd
@@ -226,7 +240,7 @@ class EquiformerMLFF:
             # Compute energy and forces with autograd
             with torch.enable_grad():
                 energy, forces, _ = self.model.potential.forward(batch, eigen=False)
-
+            self.model.cnt_hessian_autograd += 1
             # Use autograd to compute hessian
             hessian = (
                 compute_hessian(batch.pos, energy, forces).detach().cpu().numpy()
@@ -240,6 +254,7 @@ class EquiformerMLFF:
                 energy, forces, out = self.model.potential.forward(
                     batch, eigen=False, hessian=True
                 )
+                self.model.cnt_hessian_predict += 1
                 hessian = (
                     out.hessian.detach().cpu().numpy() / AU2EV * BOHR2ANG * BOHR2ANG
                 )

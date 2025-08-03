@@ -248,7 +248,7 @@ def main(args: dict):
     convert_ts = 0
     converged_ts = 0
     for folder in glob(f"{scratch}/*/TSOPT"):
-        with open(os.path.join(folder, "output.txt"), "r") as f:
+        with open(os.path.join(folder, "pysis_tsopt_output.txt"), "r") as f:
             lines = f.readlines()
             true_ts = False
             for line in reversed(lines):
@@ -267,9 +267,9 @@ def main(args: dict):
     # Count successful IRC calculations
     irc_success = 0
     for folder in glob(f"{scratch}/*/IRC"):
-        if not os.path.exists(os.path.join(folder, "output.txt")):
+        if not os.path.exists(os.path.join(folder, "pysis_irc_output.txt")):
             continue
-        with open(os.path.join(folder, "output.txt"), "r") as f:
+        with open(os.path.join(folder, "pysis_irc_output.txt"), "r") as f:
             lines = f.readlines()
             left = ts = right = 0
             # This counts how many structures have energies different from the minimum. 
@@ -405,6 +405,12 @@ def ts_calc(
     xyz_write(f"{gsm_job.work_folder}/{gsm_job.jobname}-TSguess.xyz", TSE, TSG)
     work_folder = os.path.join(gsm_job.work_folder, "TSOPT")
 
+    calc_kwargs={
+        "device": args["device"],
+        "ckpt_path": args["ckpt_path"],
+        "config_path": args["config_path"],
+        "hessian_method": args["hessian_method"],
+    }
     tsopt_job = PYSIS(
         input_geo=f"{gsm_job.work_folder}/{gsm_job.jobname}-TSguess.xyz",
         work_folder=work_folder,
@@ -415,14 +421,12 @@ def ts_calc(
         exe=args["pysis_exe"],
         multiplicity=multiplicity,
         charge=charge,
-        calc_kwargs={
-            "device": args["device"],
-            "ckpt_path": args["ckpt_path"],
-            "config_path": args["config_path"],
-            "hessian_method": args["hessian_method"],
-        }
+        calc_kwargs=calc_kwargs,
     )
-    tsopt_job.generate_input(calctype=f"mlff-{args['calc']}", hess=True, hess_step=1)
+    tsopt_job.generate_input(
+        calctype=f"mlff-{args['calc']}", hess=True, hess_step=1,
+        calc_kwargs=calc_kwargs,
+    )
 
     # run ts-opt job
     start = time.time()
@@ -455,6 +459,12 @@ def ts_calc(
     TSE, TSG = tsopt_job.get_final_ts()
     xyz_write(f"{tsopt_job.work_folder}/{tsopt_job.jobname}-TS.xyz", TSE, TSG)
     work_folder = tsopt_job.work_folder.replace("TSOPT", "IRC")
+    calc_kwargs={
+        "device": args["device"],
+        "ckpt_path": args["ckpt_path"],
+        "config_path": args["config_path"],
+        "hessian_method": args["hessian_method"],
+    },
     irc_job = PYSIS(
         input_geo=f"{tsopt_job.work_folder}/{tsopt_job.jobname}-TS.xyz",
         work_folder=work_folder,
@@ -462,20 +472,20 @@ def ts_calc(
         jobname=tsopt_job.jobname,
         jobtype="irc",
         exe=args["pysis_exe"],
-        calc_kwargs={
-            "device": args["device"],
-            "ckpt_path": args["ckpt_path"],
-            "config_path": args["config_path"],
-            "hessian_method": args["hessian_method"],
-        },
+        calc_kwargs=calc_kwargs,
     )
     if os.path.isfile(f"{tsopt_job.work_folder}/ts_final_hessian.h5"):
         irc_job.generate_input(
             calctype=f"mlff-{args['calc']}",
             hess_init=f"{tsopt_job.work_folder}/ts_final_hessian.h5",
+            calc_kwargs=calc_kwargs,
         )
     else:
-        irc_job.generate_input(calctype=f"mlff-{args['calc']}")
+        print(f"IRC did not find ts_final_hessian for {tsopt_job.jobname} {tsopt_job.jobtype}")
+        irc_job.generate_input(
+            calctype=f"mlff-{args['calc']}",
+            calc_kwargs=calc_kwargs,
+        )
 
     # run irc job
     start = time.time()

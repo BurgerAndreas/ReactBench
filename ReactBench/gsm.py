@@ -62,8 +62,9 @@ class PYGSM:
         self.work_folder = work_folder
         self.jobname = jobname
         self.restart = restart
-        self.output = f"{work_folder}/scratch/output.txt"
-        self.errlog = f"{work_folder}/scratch/err_msg.txt"
+        self.output = f"{work_folder}/scratch/pygsm_output.txt"
+        self.errlog = f"{work_folder}/scratch/pygsm_err_msg.txt"
+        self.result_file = f"{work_folder}/scratch/pygsm_result.txt"
         self.max_gsm_iters = max_gsm_iters
         if source_path is None:
             self.source_path = "/".join(os.path.abspath(__file__).split("/")[:-3])
@@ -137,7 +138,7 @@ class PYGSM:
                 )
                 self.command += f" -restart_file {self.work_folder}/restart.xyz"
 
-        print(f"Finished preparing working environment for pyGSM job {self.jobname}")
+        print(f"Finished preparing working environment for pyGSM job {self.jobname} ( {self.output} )")
 
     def execute(self, timeout=3600):
         """Execute a GSM calculation.
@@ -198,6 +199,12 @@ class PYGSM:
                 time.sleep(1)
 
             execution_time = time.time() - start_time
+            
+            #copy the last 20 lines of the output file to a new result file
+            with open(self.output, "r", encoding="utf-8") as f:
+                lines = f.readlines()
+            with open(self.result_file, "a", encoding="utf-8") as f:
+                f.write("".join(lines[-20:]))
 
             if result.returncode == 0:
                 msg = f"GSM job {self.jobname} finished in {execution_time:.1f}s (completed {completed_steps}/{self.max_gsm_iters} iterations)"
