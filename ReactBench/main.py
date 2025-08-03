@@ -166,38 +166,26 @@ def main(args: dict):
                             // Yet Another Reaction Program
             """
         )
-        logger.info(
-            "================================================================================"
-        )
+        logger.info("=" * 80)
         logger.info(
             "                               INPUT PARAMETERS                                 "
         )
-        logger.info(
-            "================================================================================"
-        )
+        logger.info("=" * 80)
         for key, val in args.items():
             line = str(key) + ": " + str(val)
             logger.info(line)
 
-        logger.info(
-            "\n================================================================================"
-        )
+        logger.info("\n" + "=" * 80)
         logger.info(
             "                           PARSING INPUT REACTIONS                              "
         )
-        logger.info(
-            "================================================================================"
-        )
+        logger.info("=" * 80)
 
-        logger.info(
-            "================================================================================"
-        )
+        logger.info("=" * 80)
         logger.info(
             "                        RUNNING GROWING STRING METHODS                          "
         )
-        logger.info(
-            "================================================================================"
-        )
+        logger.info("=" * 80)
 
         ## Load in input rxns
         rxns_confs = [
@@ -277,7 +265,6 @@ def main(args: dict):
     print(f"Number of successful TS optimizations: {ts_success}({convert_ts})")
 
     # Count successful IRC calculations
-    # TODO@Andreas ???
     irc_success = 0
     for folder in glob(f"{scratch}/*/IRC"):
         if not os.path.exists(os.path.join(folder, "output.txt")):
@@ -285,18 +272,20 @@ def main(args: dict):
         with open(os.path.join(folder, "output.txt"), "r") as f:
             lines = f.readlines()
             left = ts = right = 0
+            # This counts how many structures have energies different from the minimum. 
+            # Since one structure will always be 0 (the lowest energy), having ≥2 non-zero values means:
+            # At least 3 distinct energy levels were found (minimum + 2 others)
+            # The IRC successfully traced from TS to different reactant/product structures
             for line in lines:
+                # example line:
+                # Left:   413.21 kJ mol⁻¹ (1 geometry)
+                # TS:   620.89 kJ mol⁻¹ (1 geometry)
+                # Right:     0.00 kJ mol⁻¹ (1 geometry)
                 if "Left:" in line:
-                    if irc_success == 0:
-                        print(line)
                     left = float(line.split("kJ")[0].split(":")[1].strip())
                 elif "TS:" in line:
-                    if irc_success == 0:
-                        print(line)
                     ts = float(line.split("kJ")[0].split(":")[1].strip())
                 elif "Right:" in line:
-                    if irc_success == 0:
-                        print(line)
                     right = float(line.split("kJ")[0].split(":")[1].strip())
             if sum([left != 0, ts != 0, right != 0]) >= 2:
                 irc_success += 1
@@ -420,6 +409,12 @@ def ts_calc(
         exe=args["pysis_exe"],
         multiplicity=multiplicity,
         charge=charge,
+        calc_kwargs={
+            "device": args["device"],
+            "ckpt_path": args["ckpt_path"],
+            "config_path": args["config_path"],
+            "hessian_method": args["hessian_method"],
+        }
     )
     tsopt_job.generate_input(calctype=f"mlff-{args['calc']}", hess=True, hess_step=1)
 

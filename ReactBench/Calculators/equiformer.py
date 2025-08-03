@@ -30,6 +30,7 @@ class EquiformerCalculator(Calculator):
         ckpt_path: Optional[str] = None,
         device: Optional[torch.device] = None,
         config_path: Optional[str] = None,
+        hessian_method: Optional[str] = "autograd",
         **kwargs,
     ):
         """
@@ -46,11 +47,12 @@ class EquiformerCalculator(Calculator):
 
         # this is where all the calculated properties are stored
         self.results = {}
-        
+
         _args = {
             "ckpt_path": ckpt_path,
             "device": device,
             "config_path": config_path,
+            "hessian_method": hessian_method,
             **kwargs,
         }
         print(f"{__file__} {self.__class__.__name__} got args: \n{_args}")
@@ -95,6 +97,11 @@ class EquiformerCalculator(Calculator):
         self.potential.to(self.device)
         self.potential.eval()
 
+        assert hessian_method in ["autograd", "predict"], (
+            f"Invalid hessian method: {hessian_method}"
+        )
+        self.hessian_method = hessian_method
+
         # Set implemented properties
         self.implemented_properties = ["energy", "forces", "hessian"]
 
@@ -108,18 +115,23 @@ class EquiformerCalculator(Calculator):
         batch = ase_atoms_to_torch_geometric(atoms)
         batch = batch.to(self.device)
 
-        autograd = "hessian" in properties
+        do_hessian = "hessian" in properties
+        do_autograd = do_hessian and (self.hessian_method == "autograd")
 
         # Prepare batch with extra properties
-        batch = compute_extra_props(batch, pos_require_grad=autograd)
+        batch = compute_extra_props(batch, pos_require_grad=do_autograd)
 
         # Run prediction
-        if autograd:
+        if do_autograd:
             with torch.enable_grad():
                 energy, forces, _ = self.potential.forward(batch, eigen=False)
         else:
             with torch.no_grad():
-                energy, forces, _ = self.potential.forward(batch, eigen=False)
+                energy, forces, out = self.potential.forward(
+                    batch, eigen=False, hessian=do_hessian
+                )
+                if do_hessian:
+                    self.results["hessian"] = out.hessian.detach().cpu().numpy()
 
         # Store results
         self.results = {}
@@ -127,20 +139,21 @@ class EquiformerCalculator(Calculator):
         # Energy is per molecule, extract scalar value
         self.results["energy"] = float(energy.detach().cpu().item())
 
-        if "hessian" in properties:
+        if do_autograd:
             hessian = compute_hessian(batch.pos, energy, forces).detach().cpu().numpy()
             self.results["hessian"] = hessian
 
         # Forces shape: [n_atoms, 3]
-        self.results["forces"] = forces.detach().cpu().numpy()
+        self.results["forces"] = forces.detach().cpu().numpy().reshape(-1)
 
 
-def get_equiformer_calculator(device="cpu", ckpt_path=None, config_path=None):
+def get_equiformer_calculator(device="cpu", ckpt_path=None, config_path=None, **kwargs):
     """Get equiformer calculator for run_pygsm.py"""
     return EquiformerCalculator(
         device=device,
         ckpt_path=ckpt_path,
         config_path=config_path,
+        **kwargs,
     )
 
 
@@ -148,7 +161,12 @@ class EquiformerMLFF:
     """Equiformer calculator for pysisyphus"""
 
     def __init__(
-        self, device="cpu", ckpt_path=None, config_path=None, hessian_method="autograd"
+        self,
+        device="cpu",
+        ckpt_path=None,
+        config_path=None,
+        hessian_method="autograd",
+        **kwargs,
     ):
         """
         Initialize Equiformer calculator
@@ -169,6 +187,8 @@ class EquiformerMLFF:
             ckpt_path=ckpt_path,
             device=device,
             config_path=config_path,
+            hessian_method=hessian_method,
+            **kwargs,
         )
 
     def get_energy(self, molecule):
@@ -216,12 +236,20 @@ class EquiformerMLFF:
             )
             energy = energy.item() / AU2EV
         elif self.hessian_method == "predict":
-            raise NotImplementedError("Hessian prediction not implemented")
+            with torch.no_grad():
+                energy, forces, out = self.model.potential.forward(
+                    batch, eigen=False, hessian=True
+                )
+                hessian = (
+                    out.hessian.detach().cpu().numpy() / AU2EV * BOHR2ANG * BOHR2ANG
+                )
+                energy = energy.item() / AU2EV
         else:
             raise ValueError(f"Invalid hessian method: {self.hessian_method}")
 
         results = {
             "energy": energy,
+            "forces": forces.detach().cpu().numpy().reshape(-1) / AU2EV * BOHR2ANG,
             "hessian": hessian,
         }
         return results

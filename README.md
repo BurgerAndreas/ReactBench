@@ -42,7 +42,7 @@ ReactBench/
 ### Installation Guide for Local Machine
 
 ```bash
-git clone git@github.com:deepprinciple/ReactBench.git
+git clone git@github.com:BurgerAndreas/ReactBench.git
 cd ReactBench
 mamba create -n reactbench python=3.10
 mamba activate reactbench
@@ -51,13 +51,13 @@ mamba install -y -c conda-forge openbabel
 # install pysisyphus and pygsm
 mkdir dependencies 
 cd dependencies 
-git clone git@github.com:deepprinciple/pysisyphus.git 
+git clone git@github.com:BurgerAndreas/pysisyphus.git 
 cd pysisyphus 
 git checkout reactbench 
 pip install -e .
 cd ..
 
-git clone git@github.com:deepprinciple/pyGSM.git 
+git clone git@github.com:BurgerAndreas/pyGSM.git 
 cd pyGSM
 pip install -e .
 cd ../..
@@ -93,13 +93,13 @@ module load rdkit/2023.09.5 openmm/8.2.0 openbabel/3.1.1 mctc-lib/0.3.1
 # install pysisyphus and pygsm
 mkdir dependencies 
 cd dependencies 
-git clone git@github.com:deepprinciple/pysisyphus.git 
+git clone git@github.com:BurgerAndreas/pysisyphus.git 
 cd pysisyphus 
 git checkout reactbench 
 uv pip install -e .
 cd ..
 
-git clone git@github.com:deepprinciple/pyGSM.git 
+git clone git@github.com:BurgerAndreas/pyGSM.git 
 cd pyGSM
 uv pip install -e .
 cd ../..

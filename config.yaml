@@ -20,6 +20,7 @@ multiplicity:  1     # system multiplicity (spin + 1)
 calc:          mace-pretrain   # select from the available MLFF calculators, like: 
 ckpt_path: null
 config_path: null
+hessian_method: "autograd"
 
 restart:       false
 cleanup_results: false

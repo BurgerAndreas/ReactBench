@@ -59,6 +59,7 @@ class PYSIS:
         hess_step=3,
         hess_init=False,
         freeze_atoms=None,
+        calc_kwargs={},
     ):
         """Initialize a pysisyphus job class.
 
@@ -93,6 +94,7 @@ class PYSIS:
             hess_step (int): Steps between Hessian recalc. Defaults to 3.
             hess_init (bool): Use initial Hessian. Defaults to False.
             freeze_atoms (list): List of atoms to freeze. Defaults to None.
+            calc_kwargs (dict): Calculator-specific settings. Defaults to {}.
         """
         # turn the relative path to absolute path for input_geo
         if not os.path.isabs(input_geo):
@@ -121,6 +123,7 @@ class PYSIS:
         self.solvent_epi = solvent_epi
         self.dispersion = dispersion
         self.exe = exe if exe is not None else "pysis"
+        self.calc_kwargs = calc_kwargs
 
         os.makedirs(self.work_folder, exist_ok=True)
         # create a pysis_input file
@@ -133,9 +136,11 @@ class PYSIS:
             hess_step=hess_step,
             hess_init=hess_init,
             freeze_atoms=freeze_atoms,
+            calc_kwargs=calc_kwargs,
         )
+        print(f"PYSIS job {self.jobname} created input file: {self.pysis_input}")
 
-    def generate_calculator_settings(self, calctype="mlff-leftnet"):
+    def generate_calculator_settings(self, calctype="mlff-leftnet", calc_kwargs={}):
         """Generate calculator-specific settings for the input file.
 
         Args:
@@ -150,6 +155,8 @@ class PYSIS:
                 f.write(
                     f"calc:\n type: mlff\n method: {method}\n pal: {self.nproc}\n mem: {self.mem}\n charge: {self.charge}\n mult: {self.multiplicity}\n"
                 )
+                for key, value in calc_kwargs.items():
+                    f.write(f" {key}: {value}\n")
 
             elif calctype == "pyscf":
                 settings = {
@@ -268,6 +275,7 @@ class PYSIS:
         hess_step=3,
         hess_init=False,
         freeze_atoms=None,
+        calc_kwargs={},
     ):
         """Create a PYSIS input file based on settings.
 
@@ -280,6 +288,7 @@ class PYSIS:
             hess_step (int, optional): Steps between Hessian recalc. Defaults to 3.
             hess_init (bool, optional): Use initial Hessian. Defaults to False.
             freeze_atoms (list, optional): List of atoms to freeze. Defaults to None.
+            calc_kwargs (dict, optional): Calculator-specific settings. Defaults to {}.
         """
         freeze_atoms = freeze_atoms or []
 
@@ -303,7 +312,7 @@ class PYSIS:
                 f.write(f" {key}: {value}\n")
 
         # Generate calculator and job settings
-        self.generate_calculator_settings(calctype=calctype)
+        self.generate_calculator_settings(calctype=calctype, calc_kwargs=calc_kwargs)
         self.generate_job_settings(
             method=method,
             thresh=thresh,
