@@ -79,7 +79,7 @@ class EquiformerCalculator(Calculator):
         if config_path == "auto":
             # get config from ckpt
             _ckpt = torch.load(ckpt_path, map_location="cpu", weights_only=False)
-            config = _ckpt["hyper_parameters"]["model_config"]
+            model_config = _ckpt["hyper_parameters"]["model_config"]
         else:
             if config_path in [None, "None", "none"]:
                 # Try multiple possible locations for config file
@@ -88,7 +88,7 @@ class EquiformerCalculator(Calculator):
             config_path = os.path.abspath(config_path)
             with open(config_path, "r") as file:
                 config = yaml.safe_load(file)
-        model_config = config["model"]
+            model_config = config["model"]
         self.potential = EquiformerV2_OC20(**model_config)
 
         # Load model weights
