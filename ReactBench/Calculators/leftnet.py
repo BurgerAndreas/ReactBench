@@ -20,9 +20,7 @@ def get_leftnet_calculator(device="cpu", use_autograd=True, ckpt_path=None):
         else:
             ckpt_path = f"{proj_root_dir}/ckpt/leftnet-df.ckpt"
         print(f"Using default checkpoint for LeftNet: {ckpt_path}")
-    return LeftNetCalculator(
-        weight=ckpt_path, device=device, use_autograd=use_autograd
-    )
+    return LeftNetCalculator(weight=ckpt_path, device=device, use_autograd=use_autograd)
 
 
 # get leftnet mlff for pysisyphus

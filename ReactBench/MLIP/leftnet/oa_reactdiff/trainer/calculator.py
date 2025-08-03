@@ -7,6 +7,7 @@ from oa_reactdiff.trainer.potential_module import PotentialModule
 from torch_geometric.data import Data
 import traceback
 
+
 def onehot_convert(atomic_numbers):
     """
     Convert a list of atomic numbers into an one-hot matrix
@@ -49,6 +50,7 @@ def mols_to_batch(molecules):
     )
     return data
 
+
 def find_first_existing_parent_dir(path):
     """
     Find the first existing parent directory of a given path
@@ -56,6 +58,7 @@ def find_first_existing_parent_dir(path):
     while not os.path.exists(path):
         path = os.path.dirname(path)
     return path
+
 
 class LeftNetCalculator(Calculator):
     """LeftNet ASE Calculator.
@@ -98,7 +101,9 @@ class LeftNetCalculator(Calculator):
                 weight = f"{proj_root_dir}/ckpt/leftnet-df.ckpt"
         if not os.path.exists(weight):
             _path_dir = find_first_existing_parent_dir(weight)
-            raise FileNotFoundError(f"Model weight file {weight} not found. \nproj_root_dir={proj_root_dir}. \nFiles in {_path_dir}: \n{os.listdir(_path_dir)}")
+            raise FileNotFoundError(
+                f"Model weight file {weight} not found. \nproj_root_dir={proj_root_dir}. \nFiles in {_path_dir}: \n{os.listdir(_path_dir)}"
+            )
         try:
             pm = PotentialModule.load_from_checkpoint(weight, map_location=self.device)
         except Exception as e:

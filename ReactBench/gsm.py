@@ -63,6 +63,7 @@ class PYGSM:
         self.restart = restart
         self.output = f"{work_folder}/scratch/output.txt"
         self.errlog = f"{work_folder}/scratch/err_msg.txt"
+        self.max_gsm_iters = max_gsm_iters
         if source_path is None:
             self.source_path = "/".join(os.path.abspath(__file__).split("/")[:-3])
         else:
@@ -172,21 +173,23 @@ class PYGSM:
 
             while True:
                 if process.poll() is not None:
+                    completed_steps = self.get_completed_steps()
                     result = subprocess.CompletedProcess(
                         args=self.command,
                         returncode=process.returncode,
                         stdout="",
-                        stderr="Check error.log for details.",
+                        stderr=f"Check error.log for details. Completed {completed_steps}/{self.max_gsm_iters} iterations",
                     )
                     break
 
                 if time.time() - start_time > timeout:
                     process.kill()
+                    completed_steps = self.get_completed_steps()
                     result = subprocess.CompletedProcess(
                         args=self.command,
                         returncode=1,
                         stdout="",
-                        stderr=f"pyGSM job {self.jobname} timed out",
+                        stderr=f"pyGSM job {self.jobname} timed out after {time.time() - start_time:.1f}s > {timeout}s (completed {completed_steps}/{self.max_gsm_iters} iterations)",
                     )
                     break
 
@@ -195,7 +198,7 @@ class PYGSM:
             execution_time = time.time() - start_time
 
             if result.returncode == 0:
-                msg = f"GSM job {self.jobname} finished in {execution_time:.1f}s"
+                msg = f"GSM job {self.jobname} finished in {execution_time:.1f}s (completed {completed_steps}/{self.max_gsm_iters} iterations)"
             else:
                 msg = f"GSM job {self.jobname} failed. returncode: {result.returncode}. Check log file for details."
                 msg += f"\nresult: \n{result}"
@@ -247,15 +250,37 @@ class PYGSM:
         """
         if not os.path.isfile(self.errlog):
             return ""
-        
+
         try:
             with open(self.errlog, "r", encoding="utf-8") as f:
                 content = f.read().strip()
                 content = "# " + self.errlog + "\n" + content
-                content += "# ---" 
+                content += "# ---"
                 return content
         except Exception:
             return ""
+
+    def get_completed_steps(self) -> int:
+        """Count the number of completed GSM iteration steps by parsing output file.
+
+        Returns:
+            int: Number of completed GSM iterations based on V_profile entries
+        """
+        if not os.path.isfile(self.output):
+            return 0
+
+        try:
+            with open(self.output, "r", encoding="utf-8") as f:
+                lines = f.readlines()
+
+            step_count = 0
+            for line in lines:
+                if "V_profile:" in line:
+                    step_count += 1
+
+            return step_count
+        except Exception:
+            return 0
 
     def find_correct_TS(self, tight=True) -> int:
         """Find the transition state node index.

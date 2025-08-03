@@ -46,31 +46,48 @@ class EquiformerCalculator(Calculator):
 
         # this is where all the calculated properties are stored
         self.results = {}
+        
+        _args = {
+            "ckpt_path": ckpt_path,
+            "device": device,
+            "config_path": config_path,
+            **kwargs,
+        }
+        print(f"{__file__} {self.__class__.__name__} got args: \n{_args}")
 
         # Set device
         if device is None:
             device = "cuda" if torch.cuda.is_available() else "cpu"
         self.device = device
 
-        root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        root_dir = os.path.dirname(root_dir)
+        root_dir = os.environ.get("REACTBENCH_PATH", None)
+        if root_dir is None:
+            root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            root_dir = os.path.dirname(root_dir)
 
         # Load model
-        if config_path is None:
-            # Try multiple possible locations for config file
-            config_path = "../gad-ff/configs/equiformer_v2.yaml"
-            config_path = os.path.join(root_dir, config_path)
-        config_path = os.path.abspath(config_path)
-        with open(config_path, "r") as file:
-            config = yaml.safe_load(file)
+        # fix ckpt path
+        if ckpt_path is None:
+            ckpt_path = "ckpt/horm/eqv2.ckpt"
+            ckpt_path = os.path.join(root_dir, ckpt_path)
+        ckpt_path = os.path.abspath(ckpt_path)
+        # get the config to init the model
+        if config_path == "auto":
+            # get config from ckpt
+            _ckpt = torch.load(ckpt_path, map_location="cpu", weights_only=False)
+            config = _ckpt["hyper_parameters"]["model_config"]
+        else:
+            if config_path is None:
+                # Try multiple possible locations for config file
+                config_path = "../gad-ff/configs/equiformer_v2.yaml"
+                config_path = os.path.join(root_dir, config_path)
+            config_path = os.path.abspath(config_path)
+            with open(config_path, "r") as file:
+                config = yaml.safe_load(file)
         model_config = config["model"]
         self.potential = EquiformerV2_OC20(**model_config)
 
         # Load model weights
-        if ckpt_path is None:
-            ckpt_path = "../gad-ff/ckpt/eqv2.ckpt"
-            ckpt_path = os.path.join(root_dir, ckpt_path)
-        ckpt_path = os.path.abspath(ckpt_path)
         state_dict = torch.load(ckpt_path, weights_only=True)["state_dict"]
         state_dict = {k.replace("potential.", ""): v for k, v in state_dict.items()}
         self.potential.load_state_dict(state_dict, strict=False)

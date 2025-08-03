@@ -3,7 +3,7 @@
 
 # ReactBench installation path (optional, defaults to "/root/ReactBench")
 # This path will be set as REACTBENCH_PATH environment variable
-reactbench_path: /root/ReactBench
+reactbench_path: null
 
 # input parameters for running reaction conformational sampling
 inp_path:      data/ts1x  # a folder of target reaction xyz files
@@ -23,6 +23,7 @@ config_path: null
 
 restart:       false
 cleanup_results: false
+only_cnt_results: false
 wandb: true
 
 # input parameters for GSM
@@ -35,7 +36,7 @@ conv_tol:      0.0005        # tol for gradrms
 fixed_R:       False         # fix reactant geometry
 fixed_P:       False         # fix product geometry
 dmax:          0.1           # DMAX parameter in GSM
-gsm_wt:        3600          # walltime for a gsm job (in s)
+gsm_wt:        3600          # walltime timeout for a gsm job (in s)
 
 # input parameters for PYSIS
 select:        tight         # this will affect the selection rule of low-level calculations results

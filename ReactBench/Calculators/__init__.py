@@ -132,7 +132,7 @@ def get_calculator(calc_name, device="cpu", **kwargs):
         raise ValueError(
             f"Unknown calculator: {calc_name}. Available: {AVAILABLE_CALCULATORS}"
         )
-
+    print("get_calculator got kwargs:", kwargs)
     return CALCULATOR_FACTORIES[calc_name]["calculator"](device=device, **kwargs)
 
 
@@ -155,7 +155,7 @@ def get_mlff(calc_name, device="cpu", **kwargs):
         raise ValueError(
             f"Unknown MLFF: {calc_name}. Available: {AVAILABLE_CALCULATORS}"
         )
-
+    print("get_mlff got kwargs:", kwargs)
     return CALCULATOR_FACTORIES[calc_name]["mlff"](device=device, **kwargs)
 
 

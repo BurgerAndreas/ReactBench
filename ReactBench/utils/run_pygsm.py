@@ -64,6 +64,7 @@ def parse_arguments(verbose=True):
         help=f"select a calculator from {', '.join(AVAILABLE_CALCULATORS)}",
         required=False,
     )
+    # Added Andreas
     parser.add_argument(
         "-ckpt_path",
         default="",
@@ -85,6 +86,7 @@ def parse_arguments(verbose=True):
         help="method to compute hessian",
         required=False,
     )
+    # End Added Andreas
     parser.add_argument(
         "-ID",
         default=0,
@@ -240,9 +242,11 @@ def parse_arguments(verbose=True):
         "xyzfile": args.xyzfile,
         "info": args.info,
         "calc": args.calc,
+        # Added Andreas
         "ckpt_path": args.ckpt_path,
         "config_path": args.config_path,
         "hessian_method": args.hessian_method,
+        # End Added Andreas
         "coordinate_type": args.coordinate_type,
         "nproc": args.nproc,
         "device": getattr(args, "device", "cpu"),
@@ -347,6 +351,7 @@ def wrapper_de_gsm(
         cell = [100, 100, 100]
     else:
         cell = None
+    # level of theory
     lot = ASELoT.from_options(
         calculator,
         nproc=nproc,
@@ -355,7 +360,7 @@ def wrapper_de_gsm(
         ID=ID,
     )
 
-    # PES
+    # Potential Energy Surface, holds the calculator
     pes_obj = PES.from_options(lot=lot, ad_idx=0, multiplicity=1)
 
     # load the initial string
@@ -476,7 +481,9 @@ def wrapper_de_gsm(
     # GSM
     nifty.printcool("Building the GSM object")
     gsm = DE_GSM.from_options(
+        # Reactant holds PES which holds the calculator
         reactant=molecule_reactant,
+        # Product does not need PES because GSM is single-ended
         product=molecule_product,
         nnodes=num_nodes,
         CONV_TOL=conv_tol,

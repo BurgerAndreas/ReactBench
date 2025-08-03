@@ -163,10 +163,17 @@ wget https://huggingface.co/yhong55/ReactBench/resolve/main/leftnet.ckpt -O ckpt
 Download HORM checkpoints with Energy-Force-Hessian Training
 ```bash
 mkdir -p ckpt/horm
+# Energy-Force-Hessian Training
 wget https://huggingface.co/yhong55/HORM/resolve/main/eqv2.ckpt -O ckpt/horm/eqv2.ckpt
 wget https://huggingface.co/yhong55/HORM/resolve/main/left-df.ckpt -O ckpt/horm/left-df.ckpt
 wget https://huggingface.co/yhong55/HORM/resolve/main/left.ckpt -O ckpt/horm/left.ckpt
 wget https://huggingface.co/yhong55/HORM/resolve/main/alpha.ckpt -O ckpt/horm/alpha.ckpt
+# Energy-Force Training for baseline
+wget https://huggingface.co/yhong55/HORM/resolve/main/eqv2_orig.ckpt -O ckpt/horm/eqv2_orig.ckpt
+wget https://huggingface.co/yhong55/HORM/resolve/main/left-df_orig.ckpt -O ckpt/horm/left-df_orig.ckpt
+wget https://huggingface.co/yhong55/HORM/resolve/main/left_orig.ckpt -O ckpt/horm/left_orig.ckpt
+wget https://huggingface.co/yhong55/HORM/resolve/main/alpha_orig.ckpt -O ckpt/horm/alpha_orig.ckpt
+
 ```
 
 Download Transition1x validation subset recomputed, 960 datapoints
