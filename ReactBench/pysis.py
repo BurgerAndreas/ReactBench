@@ -155,6 +155,7 @@ class PYSIS:
                 f.write(
                     f"calc:\n type: mlff\n method: {method}\n pal: {self.nproc}\n mem: {self.mem}\n charge: {self.charge}\n mult: {self.multiplicity}\n"
                 )
+                # print(f"PYSIS job {self.jobname} got calc_kwargs: {calc_kwargs}")
                 for key, value in calc_kwargs.items():
                     f.write(f" {key}: {value}\n")
 
@@ -183,6 +184,8 @@ class PYSIS:
 
                 f.write("calc:\n")
                 for key, value in settings.items():
+                    f.write(f" {key}: {value}\n")
+                for key, value in calc_kwargs.items():
                     f.write(f" {key}: {value}\n")
 
             else:

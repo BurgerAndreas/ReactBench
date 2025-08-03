@@ -335,10 +335,11 @@ def wrapper_de_gsm(
     nifty.printcool("Parsed GSM")
 
     if calc.lower() in AVAILABLE_CALCULATORS:
-        kwargs = {}
-        for kwargname in ["ckpt_path", "config_path", "hessian_method"]:
-            if locals()[kwargname]:
-                kwargs[kwargname] = locals()[kwargname]
+        kwargs = {
+            "ckpt_path": ckpt_path,
+            "config_path": config_path,
+            "hessian_method": hessian_method,
+        }
         calculator = get_calculator(calc.lower(), device=device, **kwargs)
 
     else:
@@ -711,6 +712,10 @@ def main():
         restart_file=inpfileq["restart_file"],
         info=inpfileq["info"],
         device=inpfileq.get("device", "cpu"),
+        # Added Andreas
+        ckpt_path=inpfileq.get("ckpt_path", None),
+        config_path=inpfileq.get("config_path", None),
+        hessian_method=inpfileq.get("hessian_method", "autograd"),
     )
 
     return

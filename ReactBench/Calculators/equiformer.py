@@ -69,7 +69,7 @@ class EquiformerCalculator(Calculator):
 
         # Load model
         # fix ckpt path
-        if ckpt_path is None:
+        if ckpt_path in [None, "None", "none"]:
             ckpt_path = "ckpt/horm/eqv2.ckpt"
             ckpt_path = os.path.join(root_dir, ckpt_path)
         ckpt_path = os.path.abspath(ckpt_path)
@@ -79,7 +79,7 @@ class EquiformerCalculator(Calculator):
             _ckpt = torch.load(ckpt_path, map_location="cpu", weights_only=False)
             config = _ckpt["hyper_parameters"]["model_config"]
         else:
-            if config_path is None:
+            if config_path in [None, "None", "none"]:
                 # Try multiple possible locations for config file
                 config_path = "../gad-ff/configs/equiformer_v2.yaml"
                 config_path = os.path.join(root_dir, config_path)

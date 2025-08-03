@@ -350,6 +350,12 @@ def ts_calc(
     gsm_job = PYGSM(
         input_geo=inp_xyz,
         calc=args["calc"],
+        # Added Andreas
+        device=args["device"],
+        ckpt_path=args["ckpt_path"],
+        config_path=args["config_path"],
+        hessian_method=args["hessian_method"],
+        # End Added Andreas
         work_folder=wf,
         jobid=count,
         nprocs=1,
@@ -456,6 +462,12 @@ def ts_calc(
         jobname=tsopt_job.jobname,
         jobtype="irc",
         exe=args["pysis_exe"],
+        calc_kwargs={
+            "device": args["device"],
+            "ckpt_path": args["ckpt_path"],
+            "config_path": args["config_path"],
+            "hessian_method": args["hessian_method"],
+        },
     )
     if os.path.isfile(f"{tsopt_job.work_folder}/ts_final_hessian.h5"):
         irc_job.generate_input(

@@ -21,64 +21,66 @@ from .equiformer import EquiformerMLFF, get_equiformer_calculator
 
 # Factory functions for calculators
 # LeftNet
-def create_leftnet_calculator(device="cpu"):
+def create_leftnet_calculator(device="cpu", **kwargs):
     """Create LeftNet calculator for run_pygsm.py"""
-    return get_leftnet_calculator(device=device, use_autograd=True)
+    return get_leftnet_calculator(device=device, use_autograd=True, **kwargs)
 
 
-def create_leftnet_mlff(device="cpu"):
+def create_leftnet_mlff(device="cpu", **kwargs):
     """Create LeftNet MLFF for pysisyphus"""
-    return LeftNetMLFF(device=device, use_autograd=True)
+    return LeftNetMLFF(device=device, use_autograd=True, **kwargs)
 
 
 # LeftNet with direct forces
-def create_leftnet_calculator_d(device="cpu"):
+def create_leftnet_calculator_d(device="cpu", **kwargs):
     """Create LeftNet calculator for run_pygsm.py with direct forces"""
-    return get_leftnet_calculator(device=device, use_autograd=False)
+    return get_leftnet_calculator(device=device, use_autograd=False, **kwargs)
 
 
-def create_leftnet_mlff_d(device="cpu"):
+def create_leftnet_mlff_d(device="cpu", **kwargs):
     """Create LeftNet MLFF for pysisyphus with direct forces"""
-    return LeftNetMLFF(device=device, use_autograd=False)
+    return LeftNetMLFF(device=device, use_autograd=False, **kwargs)
 
 
 # MACE-pretrained
-def create_mace_pretrained_calculator(device="cpu"):
+def create_mace_pretrained_calculator(device="cpu", **kwargs):
     """Create MACE calculator for run_pygsm.py"""
-    return get_mace_calculator(device=device, ver="pretrain")
+    return get_mace_calculator(device=device, ver="pretrain", **kwargs)
 
 
-def create_mace_pretrained_mlff(device="cpu"):
+def create_mace_pretrained_mlff(device="cpu", **kwargs):
     """Create MACE MLFF for pysisyphus"""
-    return MACEMLFF(device=device, ver="pretrain")
+    return MACEMLFF(device=device, ver="pretrain", **kwargs)
 
 
 # MACE-finetuned
-def create_mace_finetuned_calculator(device="cpu"):
+def create_mace_finetuned_calculator(device="cpu", **kwargs):
     """Create MACE calculator for run_pygsm.py"""
-    return get_mace_calculator(device=device, ver="finetuned")
+    return get_mace_calculator(device=device, ver="finetuned", **kwargs)
 
 
-def create_mace_finetuned_mlff(device="cpu"):
+def create_mace_finetuned_mlff(device="cpu", **kwargs):
     """Create MACE MLFF for pysisyphus"""
-    return MACEMLFF(device=device, ver="finetuned")
+    return MACEMLFF(device=device, ver="finetuned", **kwargs)
 
 
 # Equiformer
-def create_equiformer_calculator(device="cpu"):
+def create_equiformer_calculator(device="cpu", **kwargs):
     """Create Equiformer calculator for run_pygsm.py"""
+    print(f"create_equiformer_calculator got kwargs: {kwargs}")
     try:
-        return get_equiformer_calculator(device=device)
+        return get_equiformer_calculator(device=device, **kwargs)
     except NameError:
         raise ImportError(
             "Equiformer calculator is not available. Please check dependencies."
         )
 
 
-def create_equiformer_mlff(device="cpu"):
+def create_equiformer_mlff(device="cpu", **kwargs):
     """Create Equiformer MLFF for pysisyphus"""
+    print(f"create_equiformer_mlff got kwargs: {kwargs}")
     try:
-        return EquiformerMLFF(device=device)
+        return EquiformerMLFF(device=device, **kwargs)
     except NameError:
         raise ImportError(
             "Equiformer MLFF is not available. Please check dependencies."

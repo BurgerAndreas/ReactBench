@@ -33,6 +33,7 @@ class PYGSM:
         ckpt_path=None,
         config_path=None,
         hessian_method="autograd",
+        device="cpu",
     ):
         """Initialize a pyGSM job class.
 
@@ -84,6 +85,7 @@ class PYGSM:
             f"-ckpt_path {ckpt_path}",
             f"-config_path {config_path}",
             f"-hessian_method {hessian_method}",
+            f"-device {device}",
             # End Added Andreas
             f"-ID {jobid}",
             f"-num_nodes {num_nodes}",

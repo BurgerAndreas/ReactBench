@@ -95,7 +95,6 @@ mkdir dependencies
 cd dependencies 
 git clone git@github.com:BurgerAndreas/pysisyphus.git 
 cd pysisyphus 
-git checkout reactbench 
 uv pip install -e .
 cd ..
 
