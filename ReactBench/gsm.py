@@ -62,9 +62,10 @@ class PYGSM:
         self.work_folder = work_folder
         self.jobname = jobname
         self.restart = restart
-        self.output = f"{work_folder}/scratch/pygsm_output.txt"
-        self.errlog = f"{work_folder}/scratch/pygsm_err_msg.txt"
-        self.result_file = f"{work_folder}/scratch/pygsm_result.txt"
+        self.work_folder_temp = f"{work_folder}/scratch"
+        self.output = f"{self.work_folder_temp}/pygsm_output.txt"
+        self.errlog = f"{self.work_folder_temp}/pygsm_err_msg.txt"
+        self.result_file = f"{self.work_folder_temp}/pygsm_result.txt"
         self.max_gsm_iters = max_gsm_iters
         if source_path is None:
             self.source_path = "/".join(os.path.abspath(__file__).split("/")[:-3])
@@ -110,18 +111,18 @@ class PYGSM:
     def prepare_job(self):
         """Prepare GSM job by setting up working directory and input files."""
         # Create working directories if they don't exist
-        os.makedirs(f"{self.work_folder}/scratch", exist_ok=True)
+        os.makedirs(self.work_folder_temp, exist_ok=True)
 
         # Copy input geometry to scratch
         os.system(
-            f"cp {self.input_geo} {self.work_folder}/scratch/initial{self.jobid:03d}.xyz"
+            f"cp {self.input_geo} {self.work_folder_temp}/initial{self.jobid:03d}.xyz"
         )
 
         # Handle restart if needed
         if self.restart:
             opt_strings = [
                 f
-                for f in os.listdir(f"{self.work_folder}/scratch")
+                for f in os.listdir(self.work_folder_temp)
                 if "opt_iters_" in f
             ]
             if opt_strings:
@@ -134,12 +135,12 @@ class PYGSM:
                     if int(f.split(".xyz")[0].split("_")[-1]) == last_ind
                 ][0]
                 os.system(
-                    f"cp {self.work_folder}/scratch/{restart_string} {self.work_folder}/restart.xyz"
+                    f"cp {self.work_folder_temp}/{restart_string} {self.work_folder}/restart.xyz"
                 )
                 self.command += f" -restart_file {self.work_folder}/restart.xyz"
 
         print(
-            f"Finished preparing working environment for pyGSM job {self.jobname} ( {self.output} )"
+            f"pyGSM {self.jobname}: Finished prepping"
         )
 
     def execute(self, timeout=3600):
@@ -152,12 +153,12 @@ class PYGSM:
             str: Status message indicating job completion or failure
         """
         if self.calculation_terminated():
-            msg = f"GSM job {self.jobname} has been finished, skipping..."
+            msg = f"pyGSM {self.jobname}: Finished, skipping..."
             print(msg)
             return msg
 
         if os.path.isfile(self.output) and not self.restart:
-            msg = f"GSM job {self.jobname} failed, skipping..."
+            msg = f"pyGSM {self.jobname}: Failed, skipping..."
             print(msg)
             return msg
 
@@ -183,7 +184,7 @@ class PYGSM:
                         args=self.command,
                         returncode=process.returncode,
                         stdout="",
-                        stderr=f"Check error.log for details. Completed {completed_steps}/{self.max_gsm_iters} iterations",
+                        stderr=f"Check {self.errlog}. Completed {completed_steps}/{self.max_gsm_iters} iterations",
                     )
                     break
 
@@ -194,7 +195,7 @@ class PYGSM:
                         args=self.command,
                         returncode=1,
                         stdout="",
-                        stderr=f"pyGSM job {self.jobname} timed out after {time.time() - start_time:.1f}s > {timeout}s (completed {completed_steps}/{self.max_gsm_iters} iterations)",
+                        stderr=f"pyGSM {self.jobname}: Timed out after {time.time() - start_time:.1f}s > {timeout}s (completed {completed_steps}/{self.max_gsm_iters} iterations)",
                     )
                     break
 
@@ -209,9 +210,9 @@ class PYGSM:
                 f.write("".join(lines[-20:]))
 
             if result.returncode == 0:
-                msg = f"GSM job {self.jobname} finished in {execution_time:.1f}s (completed {completed_steps}/{self.max_gsm_iters} iterations)"
+                msg = f"pyGSM {self.jobname}: Finished in {execution_time:.1f}s (completed {completed_steps}/{self.max_gsm_iters} iterations)"
             else:
-                msg = f"GSM job {self.jobname} failed. returncode: {result.returncode}. Check log file for details."
+                msg = f"pyGSM {self.jobname}: Failed. Returncode: {result.returncode}. Check {self.errlog}"
                 msg += f"\nresult: \n{result}"
 
             return msg

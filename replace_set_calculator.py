@@ -71,19 +71,20 @@ def process_file(filepath, dry_run=False):
 def main():
     """Main function to process all files recursively."""
     parser = argparse.ArgumentParser(
-        description="Recursively replace .set_calculator(...) with .calc = ... in all files"
+        description="Recursively replace .set_calculator(...) with .calc = ... in Python files"
     )
     parser.add_argument(
-        "--dry-run", 
+        "--apply", 
         action="store_true", 
-        help="Preview changes without modifying files"
+        help="Actually apply changes (default is dry-run mode)"
     )
     args = parser.parse_args()
     
     start_dir = Path('.')
+    dry_run = not args.apply
     
-    mode = "Preview mode" if args.dry_run else "Replacement mode"
-    print(f"{mode}: Recursively replacing .set_calculator(...) with .calc = ...")
+    mode = "Preview mode" if dry_run else "Replacement mode"
+    print(f"{mode}: Recursively replacing .set_calculator(...) with .calc = ... in Python files")
     print(f"Starting from: {start_dir.absolute()}")
     print("-" * 60)
     
@@ -93,16 +94,20 @@ def main():
     # Walk through all files recursively
     for root, dirs, files in os.walk(start_dir):
         for file in files:
+            # Only process Python files
+            if not file.endswith('.py'):
+                continue
+                
             filepath = Path(root) / file
             
             try:
-                success, message, changes = process_file(filepath, dry_run=args.dry_run)
+                success, message, changes = process_file(filepath, dry_run=dry_run)
                 if success:
                     modified_count += 1
                     print(f"✓ {filepath}: {message}")
                     
                     # Show changed lines
-                    if changes and (args.dry_run or len(changes) <= 5):  # Limit output
+                    if changes and (dry_run or len(changes) <= 5):  # Limit output
                         for line_num, old_line, new_line in changes:
                             print(f"  Line {line_num}:")
                             print(f"    - {old_line.strip()}")
@@ -118,9 +123,10 @@ def main():
                 print(f"✗ {filepath}: Unexpected error: {e}")
     
     print("-" * 60)
-    print(f"Processed {processed_count} files")
-    if args.dry_run:
+    print(f"Processed {processed_count} Python files")
+    if dry_run:
         print(f"Would modify {modified_count} files")
+        print("\nTo actually apply changes, run with: --apply")
     else:
         print(f"Modified {modified_count} files")
 

@@ -22,13 +22,23 @@ ckpt_path: null
 config_path: null
 hessian_method: "autograd"
 
-restart:       false
-cleanup_results: false
+# when to consider a TS as true TS and do IRC
+# - default: only the default hessian method must be true
+# - all: both autograd and hessian predict must be true
+# - any: any of the hessian methods must be true
+# - autograd: only the autograd hessian method must be true
+ts_require: "default"
+
+redo_all: false # redo all
+redo_gsm: false 
+redo_opt: false
+redo_irc: false
 only_cnt_results: false
+cleanup_results: false
 wandb: true
 
 # input parameters for GSM
-gsm_restart:   True          # restart GSM jobs or not
+gsm_restart:   True          # restart GSM jobs from previous calculation or not
 num_nodes:     9             # number of nodes in GSM string
 max_gsm_iters: 50            # maximum number of GSM iterations
 max_opt_steps: 5             # maximum optimization steps in each iteration
@@ -41,7 +51,7 @@ gsm_wt:        3600          # walltime timeout for a gsm job (in s)
 
 # input parameters for PYSIS
 select:        tight         # this will affect the selection rule of low-level calculations results
-pysis_restart: True          # restart PYSIS jobs or not
+pysis_restart: True          # restart PYSIS jobs from previous calculation or not
 python_exe:    python        # python path for calling GSM calculations
 pysis_exe:     pysis         # pysis path
 

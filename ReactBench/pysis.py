@@ -105,10 +105,11 @@ class PYSIS:
         self.input_geo = input_geo
         self.work_folder = work_folder
         self.pysis_input = os.path.join(
-            work_folder, f"pysis_{jobname}_{jobtype}_input.yaml"
+            work_folder, f"pysis_{jobtype}_input.yaml"
         )
         self.output = os.path.join(work_folder, f"pysis_{jobtype}_output.txt")
-        self.errlog = os.path.join(work_folder, f"pysis_{jobname}-{jobtype}.err")
+        self.errlog = os.path.join(work_folder, f"pysis_{jobtype}.err")
+        self.result_file = os.path.join(work_folder, f"pysis_{jobtype}_result.txt")
         self.nproc = int(nproc)
         self.mem = int(mem)
         self.jobname = jobname
@@ -126,6 +127,8 @@ class PYSIS:
         self.dispersion = dispersion
         self.exe = exe if exe is not None else "pysis"
         self.calc_kwargs = calc_kwargs
+        # number of imaginary frequencies
+        self.num_im_freqs = None
 
         os.makedirs(self.work_folder, exist_ok=True)
         # create a pysis_input file
@@ -140,7 +143,7 @@ class PYSIS:
             freeze_atoms=freeze_atoms,
             calc_kwargs=calc_kwargs,
         )
-        # print(f"PYSIS job {self.jobname} created input file: {self.pysis_input}")
+        # print(f"pysis {self.jobname} created input file: {self.pysis_input}")
 
     def generate_calculator_settings(self, calctype="mlff-leftnet", calc_kwargs={}):
         """Generate calculator-specific settings for the input file.
@@ -157,7 +160,7 @@ class PYSIS:
                 f.write(
                     f"calc:\n type: mlff\n method: {method}\n pal: {self.nproc}\n mem: {self.mem}\n charge: {self.charge}\n mult: {self.multiplicity}\n"
                 )
-                # print(f"PYSIS job {self.jobname} {self.jobtype} got calc_kwargs: {calc_kwargs}")
+                # print(f"pysis {self.jobname} {self.jobtype} got calc_kwargs: {calc_kwargs}")
                 for key, value in calc_kwargs.items():
                     f.write(f" {key}: {value}\n")
 
@@ -340,12 +343,12 @@ class PYSIS:
 
         # Check job status before executing
         if self.calculation_terminated_normally():
-            msg = f"PYSIS job {self.jobname} has been finished, skip this job..."
+            msg = f"pysis {self.jobname}: Finished, skip this job..."
             print(msg)
             return msg
 
         if os.path.isfile(self.output) and not self.restart:
-            msg = f"PYSIS job {self.jobname} fails, skip this job..."
+            msg = f"pysis {self.jobname}: Failed, skip this job..."
             print(msg)
             return msg
 
@@ -354,7 +357,7 @@ class PYSIS:
             env = os.environ.copy()
             env["OMP_NUM_THREADS"] = str(self.nproc)
 
-            print(f"running PYSIS job {self.jobname}")
+            print(f"pysis {self.jobname}: Running...")
 
             with open(self.output, "w") as stdout, open(self.errlog, "w") as stderr:
                 process = subprocess.Popen(
@@ -382,12 +385,18 @@ class PYSIS:
                         args=f"{self.exe} {self.pysis_input}",
                         returncode=1,
                         stdout="",
-                        stderr=f"PYSIS job {self.jobname} timed out after {timeout} seconds",
+                        stderr=f"pysis {self.jobname}: Timed out after {timeout} seconds",
                     )
 
         finally:
             if "process" in locals() and process.poll() is None:
                 kill_process_tree(process.pid)
+            
+            # copy the last lines of the output to a new result file
+            with open(self.output, "r") as f:
+                lines = f.readlines()
+                with open(self.result_file, "w") as f:
+                    f.write("".join(lines[-50:]))
 
             if cleanup:
                 # Cleanup temporary files
@@ -412,11 +421,11 @@ class PYSIS:
                         os.remove(log_file)
 
         if result.returncode == 0:
-            msg = f"PYSIS job {self.jobname} is finished."
+            msg = f"pysis {self.jobname}: Finished."
         else:
-            msg = f"Command failed for PYSIS job {self.jobname}, check job log file for detailed information"
+            msg = f"pysis {self.jobname}: Failed, check {self.errlog}"
             with open(self.output, "a") as f:
-                f.write("\nError termination of PYSIS...\n")
+                f.write("\nError termination of pysis...\n")
 
         print(msg)
         return msg
@@ -514,15 +523,26 @@ class PYSIS:
 
         if not self.calculation_terminated_normally():
             return False
+        
+        self.freq_analysis = {"num_im_freqs": f"self.output {self.output} not found"}
+        _is_true_ts = {"default": False}
 
+        # lines are written in
+        # dependencies/pysisyphus/pysisyphus/helpers.py do_final_hessian()
         with open(self.output, "r", encoding="utf-8") as f:
             lines = f.readlines()
             for line in reversed(lines):
                 if "Imaginary frequencies:" in line:
                     freqs = [float(x) for x in re.findall(r"-?\d+\.?\d*", line)]
-                    return len(freqs) == 1 and freqs[0] < -10
+                    self.freq_analysis["num_im_freqs"] = len(freqs)
+                    _is_true_ts["default"] = len(freqs) == 1 and freqs[0] < -10
+                for hessian_method in ["autograd", "predict"]:
+                    if f"{hessian_method} Img freqs:" in line:
+                        freqs = [float(x) for x in re.findall(r"-?\d+\.?\d*", line)]
+                        self.freq_analysis[hessian_method] = len(freqs)
+                        _is_true_ts[hessian_method] = len(freqs) == 1 and freqs[0] < -10
 
-        return False
+        return _is_true_ts
 
     def get_energy(self) -> float:
         """Get single point energy from the output file.

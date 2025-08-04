@@ -88,7 +88,7 @@ def main(args: dict):
     # Set scratch directory
     scratch = args["scratch"]
     if scratch is None:
-        scratch = "scratch/" + generate_run_name(args)
+        scratch = "runs/" + generate_run_name(args)
         args["scratch"] = scratch
 
     # check that nprocs is smaller than the number of cpus on the machine
@@ -112,13 +112,10 @@ def main(args: dict):
     args["scratch_opt"] = scratch_opt
 
     # Cleanup results if specified in config
-    if args.get("restart", False):
+    if args.get("redo_all", False):
         print(f"\nCleaning up results directory: {scratch}")
-        try:
+        if os.path.exists(scratch):
             shutil.rmtree(scratch)
-            print("Results cleanup completed successfully.")
-        except Exception as e:
-            print(f"Warning: Failed to cleanup results directory: {e}")
 
     if args.get("wandb", False):
         # Use the same naming convention for wandb as scratch
@@ -129,14 +126,11 @@ def main(args: dict):
         logger = DummyLogger()
     else:
         # create folders
-        if not os.path.exists(scratch):
-            os.mkdir(scratch)
-        if not os.path.exists(scratch_opt):
-            os.mkdir(scratch_opt)
+        os.makedirs(scratch, exist_ok=True)
+        os.makedirs(scratch_opt, exist_ok=True)
 
         # create init_rxns folder and copy input files
-        if not os.path.exists(f"{scratch}/init_rxns"):
-            os.makedirs(f"{scratch}/init_rxns")
+        os.makedirs(f"{scratch}/init_rxns", exist_ok=True)
         for f in os.listdir(args["inp_path"]):
             if f.endswith(".xyz"):
                 os.system(f"cp {args['inp_path']}/{f} {scratch}/init_rxns/")
@@ -210,12 +204,15 @@ def main(args: dict):
                     args["gsm_wt"],
                     charge,
                     multiplicity,
+                    args.get("redo_gsm", False),
+                    args.get("redo_opt", False),
+                    args.get("redo_irc", False),
                 )
             )
 
         # Run the tasks in parallel
         jobs = Parallel(n_jobs=thread)(
-            delayed(ts_calc)(*task) for task in input_job_list
+            delayed(run_gsm_rsprfo_irc)(*task) for task in input_job_list
         )
         tsopt_jobs = {}
         irc_jobs = []
@@ -325,8 +322,10 @@ def main(args: dict):
     return
 
 
-def ts_calc(
-    count, rxn, scratch, args, logging_queue, timeout=3600, charge=0, multiplicity=1
+def run_gsm_rsprfo_irc(
+    count, rxn, scratch, args, logging_queue, 
+    timeout=3600, charge=0, multiplicity=1,
+    redo_gsm=False, redo_opt=False, redo_irc=False,
 ):
     """
     subprocess for running ts calculation in parallel
@@ -340,13 +339,34 @@ def ts_calc(
     if not logger.hasHandlers():
         logger.addHandler(QueueHandler(logging_queue))
         logger.setLevel(logging.INFO)
+        
+    #######################################################
+    # GSM
+    #######################################################
 
     # prepare GSM job
     rxn_ind = rxn.split(".xyz")[0]
     wf = f"{scratch}/{rxn_ind}"
-    if os.path.isdir(wf) is False:
-        os.mkdir(wf)
+    os.makedirs(wf, exist_ok=True)
     inp_xyz = f"{scratch}/init_rxns/{rxn}"
+    
+    if redo_gsm:
+        # remove wf/scratch
+        if os.path.exists(wf + "/scratch"):
+            shutil.rmtree(wf + "/scratch")
+        # remove wf/opt_converged_*.xyz
+        for f in glob(f"{wf}/opt_converged_*.xyz"):
+            os.remove(f)
+        # remove wf/restart.xyz
+        if os.path.exists(f"{wf}/restart.xyz"):
+            os.remove(f"{wf}/restart.xyz")
+        # remove wf/initial*.xyz
+        for f in glob(f"{wf}/initial*.xyz"):
+            os.remove(f)
+        # remove wf/growing_string_*.xyz
+        for f in glob(f"{wf}/growing_string_*.xyz"):
+            os.remove(f)
+    
     gsm_job = PYGSM(
         input_geo=inp_xyz,
         calc=args["calc"],
@@ -399,6 +419,15 @@ def ts_calc(
         print(f"GSM job {gsm_job.jobname} fails to locate a TS, skip this rxn...")
         logger.info(f"GSM job {gsm_job.jobname} fails to locate a TS, skip this rxn...")
         return (rxn_ind, False, False)
+    
+    #######################################################
+    # TS-OPT with RSPRFO
+    #######################################################
+    
+    if redo_opt:
+        # remove wf/TSOPT
+        if os.path.exists(gsm_job.work_folder + "/TSOPT"):
+            shutil.rmtree(gsm_job.work_folder + "/TSOPT")
 
     # prepare ts-opt job
     TSE, TSG = gsm_job.get_TS()
@@ -448,15 +477,58 @@ def ts_calc(
         print_error_content(tsopt_job.errlog, logger)
         return (rxn_ind, False, False)
 
-    if tsopt_job.is_true_ts() is False:
-        print(
-            f"TSopt job {tsopt_job.jobname} fails to locate a true transition state, skip this reaction..."
-        )
-        logger.info(
-            f"TSopt job {tsopt_job.jobname} fails to locate a true transition state, skip this reaction..."
-        )
+    is_true_ts = tsopt_job.is_true_ts()
+    msg = f"TSopt job {tsopt_job.jobname} is true TS: {is_true_ts}"
+    msg += f" (num_im_freqs={tsopt_job.freq_analysis['num_im_freqs']}"
+    for hessian_method in ["autograd", "predict"]:
+        if hessian_method in tsopt_job.freq_analysis:
+            msg += f", {hessian_method}:{tsopt_job.freq_analysis[hessian_method]}"
+    msg += ")"
+    print(msg)
+    logger.info(msg)
+    
+    strategy = args.get("ts_require", "default")
+    msg = f"TSopt job {tsopt_job.jobname} fails to locate a true transition state, skip this reaction."
+    # always do IRC
+    if strategy in [None, "None", "none"]:
+        pass
+    # both autograd and hessian predict must be true
+    elif strategy == "all":
+        for k, v in is_true_ts.items():
+            if v is False:
+                print(msg)
+                logger.info(msg)
+                return (rxn_ind, False, False)
+    # any of the hessian methods must be true
+    elif strategy == "any":
+        _continue = False
+        for k, v in is_true_ts.items():
+            if v is True:
+                _continue = True
+                break
+        if _continue is False:
+            print(msg)
+            logger.info(msg)
+            return (rxn_ind, False, False)
+    # only the default hessian method must be true
+    elif strategy == "default":
+        if is_true_ts["default"] is False:
+            print(msg)
+            logger.info(msg)
+            return (rxn_ind, False, False)
+    # only the autograd hessian method must be true
+    elif strategy == "autograd":
+        if is_true_ts["autograd"] is False:
+            msg = f"TSopt job {tsopt_job.jobname} fails to locate a true transition state, skip this reaction."
+        msg = f"TSopt job {tsopt_job.jobname} fails to locate a true transition state, skip this reaction."
         return (rxn_ind, False, False)
+    else:
+        raise ValueError(f"Invalid ts_require strategy: {strategy}")
 
+    #######################################################
+    # IRC
+    #######################################################
+    
     # prepare irc job
     TSE, TSG = tsopt_job.get_final_ts()
     xyz_write(f"{tsopt_job.work_folder}/{tsopt_job.jobname}-TS.xyz", TSE, TSG)

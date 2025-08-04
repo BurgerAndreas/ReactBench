@@ -107,10 +107,13 @@ class EquiformerCalculator(Calculator):
         # Set implemented properties
         self.implemented_properties = ["energy", "forces", "hessian"]
 
-    def calculate(self, atoms=None, properties=None, system_changes=None):
+    def calculate(self, atoms=None, properties=None, system_changes=None, hessian_method=None):
         """
         Calculate properties for the given atoms.
         """
+        if hessian_method is None:
+            hessian_method = self.hessian_method
+        
         Calculator.calculate(self, atoms)
 
         # Convert ASE atoms to torch_geometric format
@@ -123,7 +126,7 @@ class EquiformerCalculator(Calculator):
         batch = batch.to(self.device)
 
         do_hessian = "hessian" in properties
-        do_autograd = do_hessian and (self.hessian_method == "autograd")
+        do_autograd = do_hessian and (hessian_method == "autograd")
 
         # Prepare batch with extra properties
         batch = compute_extra_props(batch, pos_require_grad=do_autograd)
@@ -131,7 +134,9 @@ class EquiformerCalculator(Calculator):
         # Run prediction
         if do_autograd:
             with torch.enable_grad():
-                energy, forces, _ = self.potential.forward(batch, eigen=False)
+                energy, forces, _ = self.potential.forward(
+                    batch, eigen=False, otf_graph=True
+                )
         else:
             with torch.no_grad():
                 energy, forces, out = self.potential.forward(
@@ -226,34 +231,46 @@ class EquiformerMLFF:
         }
         return results
 
-    def get_hessian(self, molecule):
+    def get_hessian(self, molecule, hessian_method=None):
         """Get Hessian for pysisyphus interface"""
+        
+        if hessian_method is None:
+            hessian_method = self.hessian_method
+        
+        with_grad = (hessian_method == "autograd")
+        
         # Convert ASE atoms to torch_geometric format
         batch = ase_atoms_to_torch_geometric_hessian(
             molecule,
             cutoff=self.model.potential.cutoff,
             max_neighbors=self.model.potential.max_neighbors,
             use_pbc=self.model.potential.use_pbc,
+            with_grad=with_grad,
         )
         batch = batch.to(self.device)
 
         # Prepare batch with extra properties for autograd
-        batch = compute_extra_props(batch, pos_require_grad=True)
+        batch = compute_extra_props(batch)
 
-        if self.hessian_method == "autograd":
+        if hessian_method == "autograd":
             # Compute energy and forces with autograd
             with torch.enable_grad():
-                energy, forces, _ = self.model.potential.forward(batch, eigen=False)
+                # batch.pos.requires_grad = True # already set in ase_atoms_to_torch_geometric_hessian
+                energy, forces, _ = self.model.potential.forward(
+                    batch, eigen=False, otf_graph=True,
+                )
+                # Use autograd to compute hessian
+                hessian = compute_hessian(
+                    coords=batch.pos, energy=energy, forces=forces, #allow_unused=True
+                )
+                N = batch.pos.shape[0]
+                hessian = hessian.detach().cpu().numpy()
+                hessian = hessian.reshape(N * 3, N * 3)
+                hessian = hessian / AU2EV * BOHR2ANG * BOHR2ANG
             self.model.cnt_hessian_autograd += 1
-            # Use autograd to compute hessian
-            hessian = (
-                compute_hessian(batch.pos, energy, forces).detach().cpu().numpy()
-                / AU2EV
-                * BOHR2ANG
-                * BOHR2ANG
-            )
             energy = energy.item() / AU2EV
-        elif self.hessian_method == "predict":
+            
+        elif hessian_method == "predict":
             with torch.no_grad():
                 energy, forces, out = self.model.potential.forward(
                     batch, eigen=False, hessian=True
@@ -262,9 +279,12 @@ class EquiformerMLFF:
                 hessian = (
                     out["hessian"].detach().cpu().numpy() / AU2EV * BOHR2ANG * BOHR2ANG
                 )
+                N = batch.pos.shape[0]
+                hessian = hessian.reshape(N * 3, N * 3)
                 energy = energy.item() / AU2EV
+                
         else:
-            raise ValueError(f"Invalid hessian method: {self.hessian_method}")
+            raise ValueError(f"Invalid hessian method: {hessian_method}")
 
         results = {
             "energy": energy,
