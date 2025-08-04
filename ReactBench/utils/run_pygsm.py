@@ -546,7 +546,7 @@ def wrapper_de_gsm(
 
     # post processing taken from the main wrapper, plots as well
     post_processing(gsm, have_TS=True)
-    
+
     if hasattr(calculator, "cnt_hessian_autograd"):
         print(f"cnt_hessian_autograd: {calculator.cnt_hessian_autograd}")
     if hasattr(calculator, "cnt_hessian_predict"):

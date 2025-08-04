@@ -92,7 +92,7 @@ class EquiformerCalculator(Calculator):
         self.potential = EquiformerV2_OC20(**model_config)
 
         # Load model weights
-        state_dict = torch.load(ckpt_path, weights_only=True)["state_dict"]
+        state_dict = torch.load(ckpt_path, weights_only=False)["state_dict"]
         state_dict = {k.replace("potential.", ""): v for k, v in state_dict.items()}
         self.potential.load_state_dict(state_dict, strict=False)
 
@@ -138,7 +138,10 @@ class EquiformerCalculator(Calculator):
                     batch, eigen=False, hessian=do_hessian
                 )
                 if do_hessian:
-                    self.results["hessian"] = out.hessian.detach().cpu().numpy()
+                    N = batch.pos.shape[0]
+                    self.results["hessian"] = (
+                        out["hessian"].detach().cpu().numpy().reshape(N * 3, N * 3)
+                    )
 
         # Store results
         self.results = {}
@@ -148,7 +151,8 @@ class EquiformerCalculator(Calculator):
 
         if do_autograd:
             hessian = compute_hessian(batch.pos, energy, forces).detach().cpu().numpy()
-            self.results["hessian"] = hessian
+            N = batch.pos.shape[0]
+            self.results["hessian"] = hessian.reshape(N * 3, N * 3)
 
         # Forces shape: [n_atoms, 3]
         self.results["forces"] = forces.detach().cpu().numpy().reshape(-1)
@@ -256,7 +260,7 @@ class EquiformerMLFF:
                 )
                 self.model.cnt_hessian_predict += 1
                 hessian = (
-                    out.hessian.detach().cpu().numpy() / AU2EV * BOHR2ANG * BOHR2ANG
+                    out["hessian"].detach().cpu().numpy() / AU2EV * BOHR2ANG * BOHR2ANG
                 )
                 energy = energy.item() / AU2EV
         else:

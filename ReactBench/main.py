@@ -272,7 +272,7 @@ def main(args: dict):
         with open(os.path.join(folder, "pysis_irc_output.txt"), "r") as f:
             lines = f.readlines()
             left = ts = right = 0
-            # This counts how many structures have energies different from the minimum. 
+            # This counts how many structures have energies different from the minimum.
             # Since one structure will always be 0 (the lowest energy), having ≥2 non-zero values means:
             # At least 3 distinct energy levels were found (minimum + 2 others)
             # The IRC successfully traced from TS to different reactant/product structures
@@ -405,7 +405,7 @@ def ts_calc(
     xyz_write(f"{gsm_job.work_folder}/{gsm_job.jobname}-TSguess.xyz", TSE, TSG)
     work_folder = os.path.join(gsm_job.work_folder, "TSOPT")
 
-    calc_kwargs={
+    calc_kwargs = {
         "device": args["device"],
         "ckpt_path": args["ckpt_path"],
         "config_path": args["config_path"],
@@ -424,7 +424,9 @@ def ts_calc(
         calc_kwargs=calc_kwargs,
     )
     tsopt_job.generate_input(
-        calctype=f"mlff-{args['calc']}", hess=True, hess_step=1,
+        calctype=f"mlff-{args['calc']}",
+        hess=True,
+        hess_step=1,
         calc_kwargs=calc_kwargs,
     )
 
@@ -459,12 +461,12 @@ def ts_calc(
     TSE, TSG = tsopt_job.get_final_ts()
     xyz_write(f"{tsopt_job.work_folder}/{tsopt_job.jobname}-TS.xyz", TSE, TSG)
     work_folder = tsopt_job.work_folder.replace("TSOPT", "IRC")
-    calc_kwargs={
+    calc_kwargs = {
         "device": args["device"],
         "ckpt_path": args["ckpt_path"],
         "config_path": args["config_path"],
         "hessian_method": args["hessian_method"],
-    },
+    }
     irc_job = PYSIS(
         input_geo=f"{tsopt_job.work_folder}/{tsopt_job.jobname}-TS.xyz",
         work_folder=work_folder,
@@ -481,7 +483,9 @@ def ts_calc(
             calc_kwargs=calc_kwargs,
         )
     else:
-        print(f"IRC did not find ts_final_hessian for {tsopt_job.jobname} {tsopt_job.jobtype}")
+        print(
+            f"IRC did not find ts_final_hessian for {tsopt_job.jobname} {tsopt_job.jobtype}"
+        )
         irc_job.generate_input(
             calctype=f"mlff-{args['calc']}",
             calc_kwargs=calc_kwargs,

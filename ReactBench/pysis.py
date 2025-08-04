@@ -104,7 +104,9 @@ class PYSIS:
             work_folder = os.path.abspath(work_folder)
         self.input_geo = input_geo
         self.work_folder = work_folder
-        self.pysis_input = os.path.join(work_folder, f"pysis_{jobname}_{jobtype}_input.yaml")
+        self.pysis_input = os.path.join(
+            work_folder, f"pysis_{jobname}_{jobtype}_input.yaml"
+        )
         self.output = os.path.join(work_folder, f"pysis_{jobtype}_output.txt")
         self.errlog = os.path.join(work_folder, f"pysis_{jobname}-{jobtype}.err")
         self.nproc = int(nproc)

@@ -138,7 +138,9 @@ class PYGSM:
                 )
                 self.command += f" -restart_file {self.work_folder}/restart.xyz"
 
-        print(f"Finished preparing working environment for pyGSM job {self.jobname} ( {self.output} )")
+        print(
+            f"Finished preparing working environment for pyGSM job {self.jobname} ( {self.output} )"
+        )
 
     def execute(self, timeout=3600):
         """Execute a GSM calculation.
@@ -199,8 +201,8 @@ class PYGSM:
                 time.sleep(1)
 
             execution_time = time.time() - start_time
-            
-            #copy the last 20 lines of the output file to a new result file
+
+            # copy the last 20 lines of the output file to a new result file
             with open(self.output, "r", encoding="utf-8") as f:
                 lines = f.readlines()
             with open(self.result_file, "a", encoding="utf-8") as f:
