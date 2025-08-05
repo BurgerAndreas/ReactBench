@@ -29,7 +29,7 @@ hessian_method: "autograd"
 # - autograd: only the autograd hessian method must be true
 ts_require: "default"
 
-redo_all: false # redo all
+redo_all: false 
 redo_gsm: false 
 redo_opt: false
 redo_irc: false
