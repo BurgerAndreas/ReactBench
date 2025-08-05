@@ -62,10 +62,11 @@ def generate_run_name(args):
     else:
         _name += f"{calc}"
     _name += "_" + os.path.basename(args["inp_path"])
+    _name += "_" + args["hessian_method"] if args["hessian_method"] else "autograd"
     return _name
 
 
-def main(args: dict):
+def launch_tssearch_processes(args: dict):
     """
     Take the arguments from options and run YARP
     """
@@ -623,4 +624,4 @@ if __name__ == "__main__":
             raise ValueError(f"Unrecognized argument: {arg}")
         i += 1
 
-    main(parameters)
+    launch_tssearch_processes(parameters)
