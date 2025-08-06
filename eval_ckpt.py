@@ -36,7 +36,17 @@ def get_ckpt_name(cfg: DictConfig):
 
 @hydra.main(version_base=None, config_path="../configs", config_name="train_eigen")
 def main(cfg: DictConfig) -> None:
+    # get extra args from config
+    hessian_method = cfg.hessian_method
+    
+    
     ckpt_path = get_ckpt_name(cfg)
+    if ckpt_path is None:
+        print("No checkpoint found, exiting")
+        return
+    
+    print(f"Evaluating checkpoint: {ckpt_path}")
+    
     
     REACT_DIR = "/project/aip-aspuru/aburger/ReactBench"
     GAD_DIR = "/project/aip-aspuru/aburger/gad-ff"
@@ -55,7 +65,7 @@ def main(cfg: DictConfig) -> None:
         lmdb_path=f"{GAD_DIR}/datasets/ts1x-val.lmdb",
         checkpoint_path=ckpt_path,
         config_path="auto",
-        hessian_method="predict",
+        hessian_method=hessian_method,
         max_samples=None,
     )
 
@@ -64,7 +74,7 @@ def main(cfg: DictConfig) -> None:
     
     parameters["ckpt_path"] = ckpt_path
     parameters["config_path"] = "auto"
-    parameters["hessian_method"] = "predict"
+    parameters["hessian_method"] = hessian_method
     parameters["reactbench_path"] = REACT_DIR
     parameters["calc"] = "equiformer"
     
