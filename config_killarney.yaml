@@ -8,7 +8,7 @@ reactbench_path: null
 # input parameters for running reaction conformational sampling
 inp_path:      data/ts1x  # a folder of target reaction xyz files
 scratch:       null   # output and working folder of RCS 
-nprocs:        14     # total number of cpus for performing YARP
+nprocs:        2     # total number of cpus for performing YARP
 
 # input parameters for calculation
 charge:        0     # system charge
