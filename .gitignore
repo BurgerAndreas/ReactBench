@@ -7,10 +7,15 @@ dependencies/
 data/ts1x
 data/*
 
+.env
+
+# logging
 wandb/
+outslurm/
 
 .ruff_cache/
 .cursor/
 
+# save computation results
 scratch/
 runs/
