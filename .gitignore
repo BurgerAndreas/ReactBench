@@ -19,3 +19,7 @@ outslurm/
 # save computation results
 scratch/
 runs/
+outputs/
+
+**/_version.py
+_version.py

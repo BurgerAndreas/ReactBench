@@ -66,7 +66,7 @@ def generate_run_name(args):
     return _name
 
 
-def launch_tssearch_processes(args: dict):
+def launch_tssearch_processes(args: dict, wandb_run_id=None, wandb_kwargs={}):
     """
     Take the arguments from options and run YARP
     """
@@ -121,7 +121,8 @@ def launch_tssearch_processes(args: dict):
     if args.get("wandb", False):
         # Use the same naming convention for wandb as scratch
         wandb_name = generate_run_name(args)
-        wandb.init(project="reactbench", name=wandb_name, config=args)
+        if wandb_run_id is None:
+            wandb.init(project="reactbench", name=wandb_name, config=args, **wandb_kwargs)
 
     if args.get("only_cnt_results", False):
         logger = DummyLogger()
