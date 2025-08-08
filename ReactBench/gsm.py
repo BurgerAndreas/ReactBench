@@ -203,17 +203,18 @@ class PYGSM:
 
             execution_time = time.time() - start_time
 
-            # copy the last 20 lines of the output file to a new result file
-            with open(self.output, "r", encoding="utf-8") as f:
-                lines = f.readlines()
-            with open(self.result_file, "a", encoding="utf-8") as f:
-                f.write("".join(lines[-20:]))
-
             if result.returncode == 0:
                 msg = f"pyGSM {self.jobname}: Finished in {execution_time:.1f}s (completed {completed_steps}/{self.max_gsm_iters} iterations)"
             else:
                 msg = f"pyGSM {self.jobname}: Failed. Returncode: {result.returncode}. Check {self.errlog}"
                 msg += f"\nresult: \n{result}"
+
+            # copy the last 20 lines of the output file to a new result file
+            with open(self.output, "r", encoding="utf-8") as f:
+                lines = f.readlines()
+            with open(self.result_file, "a", encoding="utf-8") as f:
+                f.write("".join(lines[-20:]))
+                f.write("\n" + msg)
 
             return msg
 
