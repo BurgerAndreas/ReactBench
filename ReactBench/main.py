@@ -67,6 +67,135 @@ def generate_run_name(args):
     _name += "_" + args["hessian_method"] if args["hessian_method"] else "autograd"
     return _name
 
+# Background monitor: periodically read result files and log to wandb
+def _monitor_results_periodically(scratch_dir: str, stop_evt: threading.Event, interval_sec: int = 60):
+    prev_pygsm_output_files = set()
+    prev_pysistsopt_output_files = set()
+    while not stop_evt.is_set():
+        try:
+            # Aggregate lightweight progress metrics from filesystem
+            gsm_success = len(glob(f"{scratch_dir}/*/*TSguess.xyz"))
+            job_dirs = [
+                d for d in os.listdir(scratch_dir)
+                if os.path.isdir(os.path.join(scratch_dir, d)) and d not in ["init_rxns", "scratch"]
+            ]
+            
+            # count pygsm_output.txt files
+            # runs/equiformer*/rxn123/scratch/pygsm_output.txt
+            pygsm_output_files = glob(f"{scratch_dir}/*/scratch/pygsm_output.txt")
+            pygsm_output_files = [f for f in pygsm_output_files if os.path.isfile(f)]
+            n_pygsm_output_files = len(pygsm_output_files)
+            # get last 20 lines, search for msg after "optimize_string result:"
+            gsm_outs = {}
+            times_taken = []
+            for f in pygsm_output_files:
+                with open(f, "r", encoding="utf-8") as f:
+                    lines = f.readlines()
+                    for line in reversed(lines[-20:]):
+                        if "optimize_string result:" in line:
+                            msg = line.split("optimize_string result:")[1].strip()
+                            if msg not in gsm_outs.keys():
+                                gsm_outs["monitor/" + "optim_string/" + msg] = 0
+                            gsm_outs["monitor/" + "optim_string/" + msg] += 1
+                    if "Time taken:" in line:
+                        times_taken.append(float(line.split("Time taken:")[1].split("s")[0].strip()))
+                        
+            # for new pygsm_output.txt files, print the last 20 lines so wandb captures them
+            new_pygsm_output_files = [f for f in pygsm_output_files if f not in prev_pygsm_output_files]
+            prev_pygsm_output_files = set(pygsm_output_files)
+            for f in new_pygsm_output_files:
+                with open(f, "r", encoding="utf-8") as f:
+                    lines = f.readlines()
+                    print(f"\n# {f}")
+                    print(lines[-20:])
+                    print("")
+            
+            # Count TSOPT results
+            # runs/equiformer*/rxn123/TSOPT/pysis_tsopt_output.txt
+            pysistsopt_output_files = glob(f"{scratch_dir}/*/TSOPT/pysis_tsopt_output.txt")
+            pysistsopt_output_files = [f for f in pysistsopt_output_files if os.path.isfile(f)]
+            n_pysistsopt_output_files = len(pysistsopt_output_files)
+            # get last 20 lines, search for msg after "pysis result:"
+            tsopt_outs = {}
+            pysis_times_taken = []
+            pysis_cycles_taken = []
+            for f in pysistsopt_output_files:
+                with open(f, "r", encoding="utf-8") as f:
+                    lines = f.readlines()
+                    for line in reversed(lines[-50:]):
+                        # pysis result: 
+                        if "pysis result:" in line:
+                            msg = line.split("pysis result:")[1].strip()
+                            _logkey = "monitor/" + "tsopt/" + msg
+                            if _logkey not in tsopt_outs.keys():
+                                tsopt_outs[_logkey] = 0
+                            tsopt_outs[_logkey] += 1
+                        # Cycles taken: ...
+                        if "Cycles taken:" in line:
+                            pysis_cycles_taken.append(int(line.split("Cycles taken:")[1].strip()))
+                        # Time taken: ... s
+                        if "Time taken:" in line:
+                            pysis_times_taken.append(float(line.split("Time taken:")[1].split("s")[0].strip()))
+            
+            # for new pysis_tsopt_output.txt files, print last 50 lines
+            new_pysistsopt_output_files = [f for f in pysistsopt_output_files if f not in prev_pysistsopt_output_files]
+            prev_pysistsopt_output_files = set(pysistsopt_output_files)
+            for f in new_pysistsopt_output_files:
+                with open(f, "r", encoding="utf-8") as f:
+                    lines = f.readlines()
+                    print(f"\n# {f}")
+                    print(lines[-50:])
+                    print("")
+            
+            # Count TSOPT and IRC results
+            tsopt_results = 0
+            irc_results = 0
+            for d in job_dirs:
+                tsopt_res = os.path.join(scratch_dir, d, "TSOPT", "pysis_tsopt_result.txt")
+                irc_res = os.path.join(scratch_dir, d, "IRC", "pysis_irc_result.txt")
+                # Touch the files by reading a few bytes to satisfy "read result file" requirement
+                if os.path.isfile(tsopt_res):
+                    tsopt_results += 1
+                    try:
+                        with open(tsopt_res, "r", encoding="utf-8", errors="ignore") as f:
+                            _ = f.readline()
+                    except Exception:
+                        pass
+                if os.path.isfile(irc_res):
+                    irc_results += 1
+                    try:
+                        with open(irc_res, "r", encoding="utf-8", errors="ignore") as f:
+                            _ = f.readline()
+                    except Exception:
+                        pass
+
+            metrics = {
+                "monitor/gsm_success": gsm_success,
+                "monitor/tsopt_results": tsopt_results,
+                "monitor/irc_results": irc_results,
+                "monitor/active_jobs": len(job_dirs),
+                "monitor/pygsm_output_files": n_pygsm_output_files,
+            }
+            if times_taken:
+                metrics["monitor/gsm_time_taken"] = sum(times_taken) / len(times_taken)
+                metrics["monitor/gsm_time_taken_std"] = np.std(times_taken)
+            if pysis_times_taken:
+                metrics["monitor/pysis_time_taken"] = sum(pysis_times_taken) / len(pysis_times_taken)
+                metrics["monitor/pysis_time_taken_std"] = np.std(pysis_times_taken)
+            if pysis_cycles_taken:
+                metrics["monitor/pysis_cycles_taken"] = sum(pysis_cycles_taken) / len(pysis_cycles_taken)
+                metrics["monitor/pysis_cycles_taken_std"] = np.std(pysis_cycles_taken)
+            metrics.update(gsm_outs)
+            metrics.update(tsopt_outs)
+            if wandb.run is not None:
+                wandb.log(metrics)
+        except Exception as _e:
+            # Avoid crashing the main run due to monitor issues
+            print(f"Error in monitor: {_e}")
+            # logger.info(f"Error in monitor: {_e}")
+            pass
+        finally:
+            stop_evt.wait(interval_sec)
 
 def launch_tssearch_processes(args: dict, wandb_run_id=None, wandb_kwargs={}):
     """
@@ -214,76 +343,6 @@ def launch_tssearch_processes(args: dict, wandb_run_id=None, wandb_kwargs={}):
                 )
             )
 
-        # Background monitor: periodically read result files and log to wandb
-        def _monitor_results_periodically(scratch_dir: str, stop_evt: threading.Event, interval_sec: int = 60):
-            while not stop_evt.is_set():
-                try:
-                    # Aggregate lightweight progress metrics from filesystem
-                    gsm_success = len(glob(f"{scratch_dir}/*/*TSguess.xyz"))
-                    job_dirs = [
-                        d for d in os.listdir(scratch_dir)
-                        if os.path.isdir(os.path.join(scratch_dir, d)) and d not in ["init_rxns", "scratch"]
-                    ]
-                    # count pygsm_output.txt files
-                    # rxn123/scratch/pygsm_output.txt
-                    pygsm_output_files = glob(f"{scratch_dir}/*/pygsm_output.txt")
-                    pygsm_output_files = [f for f in pygsm_output_files if os.path.isfile(f)]
-                    n_pygsm_output_files = len(pygsm_output_files)
-                    # get last 20 lines, search for msg after "optimize_string result:"
-                    gsm_outs = {}
-                    times_taken = []
-                    for f in pygsm_output_files:
-                        with open(f, "r", encoding="utf-8") as f:
-                            lines = f.readlines()
-                            for line in reversed(lines[-20:]):
-                                if "optimize_string result:" in line:
-                                    msg = line.split("optimize_string result:")[1].strip()
-                                    if msg not in gsm_outs.keys():
-                                        gsm_outs["monitor/" + "optim_string/" + msg] = 0
-                                    gsm_outs["monitor/" + "optim_string/" + msg] += 1
-                            if "Time taken:" in line:
-                                times_taken.append(float(line.split("Time taken:")[1].split("s")[0].strip()))
-                    tsopt_results = 0
-                    irc_results = 0
-                    for d in job_dirs:
-                        tsopt_res = os.path.join(scratch_dir, d, "TSOPT", "pysis_tsopt_result.txt")
-                        irc_res = os.path.join(scratch_dir, d, "IRC", "pysis_irc_result.txt")
-                        # Touch the files by reading a few bytes to satisfy "read result file" requirement
-                        if os.path.isfile(tsopt_res):
-                            tsopt_results += 1
-                            try:
-                                with open(tsopt_res, "r", encoding="utf-8", errors="ignore") as f:
-                                    _ = f.readline()
-                            except Exception:
-                                pass
-                        if os.path.isfile(irc_res):
-                            irc_results += 1
-                            try:
-                                with open(irc_res, "r", encoding="utf-8", errors="ignore") as f:
-                                    _ = f.readline()
-                            except Exception:
-                                pass
-
-                    metrics = {
-                        "monitor/gsm_success": gsm_success,
-                        "monitor/tsopt_results": tsopt_results,
-                        "monitor/irc_results": irc_results,
-                        "monitor/active_jobs": len(job_dirs),
-                        "monitor/pygsm_output_files": n_pygsm_output_files,
-                    }
-                    if times_taken:
-                        metrics["monitor/gsm_time_taken"] = sum(times_taken) / len(times_taken)
-                        metrics["monitor/gsm_time_taken_std"] = np.std(times_taken)
-                    metrics.update(gsm_outs)
-                    if wandb.run is not None:
-                        wandb.log(metrics)
-                except Exception as _e:
-                    # Avoid crashing the main run due to monitor issues
-                    print(f"Error in monitor: {_e}")
-                    # logger.info(f"Error in monitor: {_e}")
-                    pass
-                finally:
-                    stop_evt.wait(interval_sec)
 
         monitor_stop_event = threading.Event()
         monitor_thread = threading.Thread(
@@ -311,12 +370,6 @@ def launch_tssearch_processes(args: dict, wandb_run_id=None, wandb_kwargs={}):
         end = time.time()
         print(f"Total running time: {end - start}s")
         logger.info(f"Total running time: {end - start}s\n")
-        
-        # Stop background monitor after jobs complete
-        # wait for 60s to give minitor opportunity to report final metrics
-        time.sleep(60)
-        monitor_stop_event.set()
-        monitor_thread.join(timeout=20)
 
         # Analyze the output
         analyze_outputs(scratch, irc_jobs, logger, charge=charge)
@@ -324,6 +377,12 @@ def launch_tssearch_processes(args: dict, wandb_run_id=None, wandb_kwargs={}):
 
         print("All calculations are done!")
         logger.info("All calculations are done!")
+        
+        # Stop background monitor after jobs complete
+        # wait for 60s to give minitor opportunity to report final metrics
+        time.sleep(60)
+        monitor_stop_event.set()
+        monitor_thread.join(timeout=20)
 
     print("\n=== Final Results ===")
     print(f"Number of input reactions:             {len(rxns_confs)}")
