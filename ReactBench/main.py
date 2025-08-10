@@ -248,7 +248,24 @@ def launch_tssearch_processes(args: dict, wandb_run_id=None, wandb_kwargs={}):
         print(f"\nCleaning up results directory: {scratch}")
         if os.path.exists(scratch):
             shutil.rmtree(scratch)
-
+    
+    # parse ckpt_path
+    print(" # Checkpoint")
+    if args["ckpt_path"] is not None:
+        if os.path.exists(args["ckpt_path"]):
+            args["ckpt_path"] = os.path.abspath(args["ckpt_path"])
+        else:
+            default_ckpt_dir = "/ssd/Code/ReactBench/ckpt/hesspred/"
+            ckpt_path = os.path.join(default_ckpt_dir, args["ckpt_path"] + ".ckpt")
+            print(f"Looking for ckpt in\n {ckpt_path}")
+            if os.path.exists(ckpt_path):
+                args["ckpt_path"] = ckpt_path
+                print(f"Found ckpt in\n {ckpt_path}")
+            else:
+                raise FileNotFoundError(f"CKPT file not found: {ckpt_path}")
+    print(f"args['ckpt_path']: {args['ckpt_path']}")
+    
+    print("")
     if args.get("wandb", False):
         # Use the same naming convention for wandb as scratch
         wandb_name = generate_run_name(args)
