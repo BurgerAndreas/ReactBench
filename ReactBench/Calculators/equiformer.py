@@ -107,13 +107,15 @@ class EquiformerCalculator(Calculator):
         # Set implemented properties
         self.implemented_properties = ["energy", "forces", "hessian"]
 
-    def calculate(self, atoms=None, properties=None, system_changes=None, hessian_method=None):
+    def calculate(
+        self, atoms=None, properties=None, system_changes=None, hessian_method=None
+    ):
         """
         Calculate properties for the given atoms.
         """
         if hessian_method is None:
             hessian_method = self.hessian_method
-        
+
         Calculator.calculate(self, atoms)
 
         # Convert ASE atoms to torch_geometric format
@@ -233,12 +235,12 @@ class EquiformerMLFF:
 
     def get_hessian(self, molecule, hessian_method=None):
         """Get Hessian for pysisyphus interface"""
-        
+
         if hessian_method is None:
             hessian_method = self.hessian_method
-        
-        with_grad = (hessian_method == "autograd")
-        
+
+        with_grad = hessian_method == "autograd"
+
         # Convert ASE atoms to torch_geometric format
         batch = ase_atoms_to_torch_geometric_hessian(
             molecule,
@@ -257,11 +259,15 @@ class EquiformerMLFF:
             with torch.enable_grad():
                 # batch.pos.requires_grad = True # already set in ase_atoms_to_torch_geometric_hessian
                 energy, forces, _ = self.model.potential.forward(
-                    batch, eigen=False, otf_graph=True,
+                    batch,
+                    eigen=False,
+                    otf_graph=True,
                 )
                 # Use autograd to compute hessian
                 hessian = compute_hessian(
-                    coords=batch.pos, energy=energy, forces=forces, #allow_unused=True
+                    coords=batch.pos,
+                    energy=energy,
+                    forces=forces,  # allow_unused=True
                 )
                 N = batch.pos.shape[0]
                 hessian = hessian.detach().cpu().numpy()
@@ -269,7 +275,7 @@ class EquiformerMLFF:
                 hessian = hessian / AU2EV * BOHR2ANG * BOHR2ANG
             self.model.cnt_hessian_autograd += 1
             energy = energy.item() / AU2EV
-            
+
         elif hessian_method == "predict":
             with torch.no_grad():
                 energy, forces, out = self.model.potential.forward(
@@ -282,7 +288,7 @@ class EquiformerMLFF:
                 N = batch.pos.shape[0]
                 hessian = hessian.reshape(N * 3, N * 3)
                 energy = energy.item() / AU2EV
-                
+
         else:
             raise ValueError(f"Invalid hessian method: {hessian_method}")
 

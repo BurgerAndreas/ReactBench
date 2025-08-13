@@ -104,9 +104,7 @@ class PYSIS:
             work_folder = os.path.abspath(work_folder)
         self.input_geo = input_geo
         self.work_folder = work_folder
-        self.pysis_input = os.path.join(
-            work_folder, f"pysis_{jobtype}_input.yaml"
-        )
+        self.pysis_input = os.path.join(work_folder, f"pysis_{jobtype}_input.yaml")
         self.output = os.path.join(work_folder, f"pysis_{jobtype}_output.txt")
         self.errlog = os.path.join(work_folder, f"pysis_{jobtype}.err")
         self.result_file = os.path.join(work_folder, f"pysis_{jobtype}_result.txt")
@@ -391,7 +389,7 @@ class PYSIS:
         finally:
             if "process" in locals() and process.poll() is None:
                 kill_process_tree(process.pid)
-            
+
             # copy the last lines of the output to a new result file
             with open(self.output, "r") as f:
                 lines = f.readlines()
@@ -425,7 +423,7 @@ class PYSIS:
         else:
             msg = f"pysis {self.jobname}: Failed, check {self.errlog}"
             with open(self.output, "a") as f:
-                f.write("\nError termination of pysis...\n")
+                f.write(f"\nError termination of pysis. Check {self.errlog}\n")
 
         print(msg)
         return msg
@@ -523,7 +521,7 @@ class PYSIS:
 
         if not self.calculation_terminated_normally():
             return False
-        
+
         self.freq_analysis = {"num_im_freqs": f"self.output {self.output} not found"}
         _is_true_ts = {"default": False}
 

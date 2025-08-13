@@ -67,8 +67,11 @@ def generate_run_name(args):
     _name += "_" + args["hessian_method"] if args["hessian_method"] else "autograd"
     return _name
 
+
 # Background monitor: periodically read result files and log to wandb
-def _monitor_results_periodically(scratch_dir: str, stop_evt: threading.Event, interval_sec: int = 60):
+def _monitor_results_periodically(
+    scratch_dir: str, stop_evt: threading.Event, interval_sec: int = 60
+):
     prev_pygsm_output_files = set()
     prev_pysistsopt_output_files = set()
     while not stop_evt.is_set():
@@ -76,10 +79,12 @@ def _monitor_results_periodically(scratch_dir: str, stop_evt: threading.Event, i
             # Aggregate lightweight progress metrics from filesystem
             gsm_success = len(glob(f"{scratch_dir}/*/*TSguess.xyz"))
             job_dirs = [
-                d for d in os.listdir(scratch_dir)
-                if os.path.isdir(os.path.join(scratch_dir, d)) and d not in ["init_rxns", "scratch"]
+                d
+                for d in os.listdir(scratch_dir)
+                if os.path.isdir(os.path.join(scratch_dir, d))
+                and d not in ["init_rxns", "scratch"]
             ]
-            
+
             # count pygsm_output.txt files
             # runs/equiformer*/rxn123/scratch/pygsm_output.txt
             pygsm_output_files = glob(f"{scratch_dir}/*/scratch/pygsm_output.txt")
@@ -98,10 +103,14 @@ def _monitor_results_periodically(scratch_dir: str, stop_evt: threading.Event, i
                                 gsm_outs["monitor/" + "optim_string/" + msg] = 0
                             gsm_outs["monitor/" + "optim_string/" + msg] += 1
                     if "Time taken:" in line:
-                        times_taken.append(float(line.split("Time taken:")[1].split("s")[0].strip()))
-                        
+                        times_taken.append(
+                            float(line.split("Time taken:")[1].split("s")[0].strip())
+                        )
+
             # for new pygsm_output.txt files, print the last 20 lines so wandb captures them
-            new_pygsm_output_files = [f for f in pygsm_output_files if f not in prev_pygsm_output_files]
+            new_pygsm_output_files = [
+                f for f in pygsm_output_files if f not in prev_pygsm_output_files
+            ]
             prev_pygsm_output_files = set(pygsm_output_files)
             for f in new_pygsm_output_files:
                 with open(f, "r", encoding="utf-8") as f:
@@ -109,11 +118,15 @@ def _monitor_results_periodically(scratch_dir: str, stop_evt: threading.Event, i
                     print(f"\n# {f}")
                     print(lines[-20:])
                     print("")
-            
+
             # Count TSOPT results
             # runs/equiformer*/rxn123/TSOPT/pysis_tsopt_output.txt
-            pysistsopt_output_files = glob(f"{scratch_dir}/*/TSOPT/pysis_tsopt_output.txt")
-            pysistsopt_output_files = [f for f in pysistsopt_output_files if os.path.isfile(f)]
+            pysistsopt_output_files = glob(
+                f"{scratch_dir}/*/TSOPT/pysis_tsopt_output.txt"
+            )
+            pysistsopt_output_files = [
+                f for f in pysistsopt_output_files if os.path.isfile(f)
+            ]
             n_pysistsopt_output_files = len(pysistsopt_output_files)
             # get last 20 lines, search for msg after "pysis result:"
             tsopt_outs = {}
@@ -123,7 +136,7 @@ def _monitor_results_periodically(scratch_dir: str, stop_evt: threading.Event, i
                 with open(f, "r", encoding="utf-8") as f:
                     lines = f.readlines()
                     for line in reversed(lines[-50:]):
-                        # pysis result: 
+                        # pysis result:
                         if "pysis result:" in line:
                             msg = line.split("pysis result:")[1].strip()
                             _logkey = "monitor/" + "tsopt/" + msg
@@ -132,32 +145,46 @@ def _monitor_results_periodically(scratch_dir: str, stop_evt: threading.Event, i
                             tsopt_outs[_logkey] += 1
                         # Cycles taken: ...
                         if "Cycles taken:" in line:
-                            pysis_cycles_taken.append(int(line.split("Cycles taken:")[1].strip()))
+                            pysis_cycles_taken.append(
+                                int(line.split("Cycles taken:")[1].strip())
+                            )
                         # Time taken: ... s
                         if "Time taken:" in line:
-                            pysis_times_taken.append(float(line.split("Time taken:")[1].split("s")[0].strip()))
-            
+                            pysis_times_taken.append(
+                                float(
+                                    line.split("Time taken:")[1].split("s")[0].strip()
+                                )
+                            )
+
             # for new pysis_tsopt_output.txt files, print last 50 lines
-            new_pysistsopt_output_files = [f for f in pysistsopt_output_files if f not in prev_pysistsopt_output_files]
+            new_pysistsopt_output_files = [
+                f
+                for f in pysistsopt_output_files
+                if f not in prev_pysistsopt_output_files
+            ]
             prev_pysistsopt_output_files = set(pysistsopt_output_files)
             for f in new_pysistsopt_output_files:
                 with open(f, "r", encoding="utf-8") as f:
                     lines = f.readlines()
-                    print(f"\n# {f}")
-                    print(lines[-50:])
+                    print(f"\n# {f.name}")  # _io.TextIOWrapper
+                    print("".join(lines[-50:]))
                     print("")
-            
+
             # Count TSOPT and IRC results
             tsopt_results = 0
             irc_results = 0
             for d in job_dirs:
-                tsopt_res = os.path.join(scratch_dir, d, "TSOPT", "pysis_tsopt_result.txt")
+                tsopt_res = os.path.join(
+                    scratch_dir, d, "TSOPT", "pysis_tsopt_result.txt"
+                )
                 irc_res = os.path.join(scratch_dir, d, "IRC", "pysis_irc_result.txt")
                 # Touch the files by reading a few bytes to satisfy "read result file" requirement
                 if os.path.isfile(tsopt_res):
                     tsopt_results += 1
                     try:
-                        with open(tsopt_res, "r", encoding="utf-8", errors="ignore") as f:
+                        with open(
+                            tsopt_res, "r", encoding="utf-8", errors="ignore"
+                        ) as f:
                             _ = f.readline()
                     except Exception:
                         pass
@@ -180,10 +207,14 @@ def _monitor_results_periodically(scratch_dir: str, stop_evt: threading.Event, i
                 metrics["monitor/gsm_time_taken"] = sum(times_taken) / len(times_taken)
                 metrics["monitor/gsm_time_taken_std"] = np.std(times_taken)
             if pysis_times_taken:
-                metrics["monitor/pysis_time_taken"] = sum(pysis_times_taken) / len(pysis_times_taken)
+                metrics["monitor/pysis_time_taken"] = sum(pysis_times_taken) / len(
+                    pysis_times_taken
+                )
                 metrics["monitor/pysis_time_taken_std"] = np.std(pysis_times_taken)
             if pysis_cycles_taken:
-                metrics["monitor/pysis_cycles_taken"] = sum(pysis_cycles_taken) / len(pysis_cycles_taken)
+                metrics["monitor/pysis_cycles_taken"] = sum(pysis_cycles_taken) / len(
+                    pysis_cycles_taken
+                )
                 metrics["monitor/pysis_cycles_taken_std"] = np.std(pysis_cycles_taken)
             metrics.update(gsm_outs)
             metrics.update(tsopt_outs)
@@ -196,6 +227,7 @@ def _monitor_results_periodically(scratch_dir: str, stop_evt: threading.Event, i
             pass
         finally:
             stop_evt.wait(interval_sec)
+
 
 def launch_tssearch_processes(args: dict, wandb_run_id=None, wandb_kwargs={}):
     """
@@ -248,7 +280,7 @@ def launch_tssearch_processes(args: dict, wandb_run_id=None, wandb_kwargs={}):
         print(f"\nCleaning up results directory: {scratch}")
         if os.path.exists(scratch):
             shutil.rmtree(scratch)
-    
+
     # parse ckpt_path
     print(" # Checkpoint")
     if args["ckpt_path"] is not None:
@@ -264,13 +296,19 @@ def launch_tssearch_processes(args: dict, wandb_run_id=None, wandb_kwargs={}):
             else:
                 raise FileNotFoundError(f"CKPT file not found: {ckpt_path}")
     print(f"args['ckpt_path']: {args['ckpt_path']}")
-    
+
     print("")
     if args.get("wandb", False):
         # Use the same naming convention for wandb as scratch
         wandb_name = generate_run_name(args)
         if wandb_run_id is None:
-            wandb.init(project="reactbench", name=wandb_name, config=args, **wandb_kwargs)
+            wandb.init(
+                project="reactbench",
+                name=wandb_name,
+                config=args,
+                tags=["tssearch"],
+                **wandb_kwargs,
+            )
 
     if args.get("only_cnt_results", False):
         logger = DummyLogger()
@@ -360,7 +398,6 @@ def launch_tssearch_processes(args: dict, wandb_run_id=None, wandb_kwargs={}):
                 )
             )
 
-
         monitor_stop_event = threading.Event()
         monitor_thread = threading.Thread(
             target=_monitor_results_periodically,
@@ -394,7 +431,7 @@ def launch_tssearch_processes(args: dict, wandb_run_id=None, wandb_kwargs={}):
 
         print("All calculations are done!")
         logger.info("All calculations are done!")
-        
+
         # Stop background monitor after jobs complete
         # wait for 60s to give minitor opportunity to report final metrics
         time.sleep(60)
@@ -489,9 +526,17 @@ def launch_tssearch_processes(args: dict, wandb_run_id=None, wandb_kwargs={}):
 
 
 def run_gsm_rsprfo_irc(
-    count, rxn, scratch, args, logging_queue, 
-    timeout=3600, charge=0, multiplicity=1,
-    redo_gsm=False, redo_opt=False, redo_irc=False,
+    count,
+    rxn,
+    scratch,
+    args,
+    logging_queue,
+    timeout=3600,
+    charge=0,
+    multiplicity=1,
+    redo_gsm=False,
+    redo_opt=False,
+    redo_irc=False,
 ):
     """
     subprocess for running ts calculation in parallel
@@ -505,7 +550,7 @@ def run_gsm_rsprfo_irc(
     if not logger.hasHandlers():
         logger.addHandler(QueueHandler(logging_queue))
         logger.setLevel(logging.INFO)
-        
+
     #######################################################
     # GSM
     #######################################################
@@ -515,7 +560,7 @@ def run_gsm_rsprfo_irc(
     wf = f"{scratch}/{rxn_ind}"
     os.makedirs(wf, exist_ok=True)
     inp_xyz = f"{scratch}/init_rxns/{rxn}"
-    
+
     if redo_gsm:
         # remove wf/scratch
         if os.path.exists(wf + "/scratch"):
@@ -532,7 +577,7 @@ def run_gsm_rsprfo_irc(
         # remove wf/growing_string_*.xyz
         for f in glob(f"{wf}/growing_string_*.xyz"):
             os.remove(f)
-    
+
     gsm_job = PYGSM(
         input_geo=inp_xyz,
         calc=args["calc"],
@@ -585,11 +630,11 @@ def run_gsm_rsprfo_irc(
         print(f"GSM job {gsm_job.jobname} fails to locate a TS, skip this rxn...")
         logger.info(f"GSM job {gsm_job.jobname} fails to locate a TS, skip this rxn...")
         return (rxn_ind, False, False)
-    
+
     #######################################################
     # TS-OPT with RSPRFO
     #######################################################
-    
+
     if redo_opt:
         # remove wf/TSOPT
         if os.path.exists(gsm_job.work_folder + "/TSOPT"):
@@ -652,7 +697,7 @@ def run_gsm_rsprfo_irc(
     msg += ")"
     print(msg)
     logger.info(msg)
-    
+
     strategy = args.get("ts_require", "default")
     msg = f"TSopt job {tsopt_job.jobname} fails to locate a true transition state, skip this reaction."
     # always do IRC
@@ -694,7 +739,7 @@ def run_gsm_rsprfo_irc(
     #######################################################
     # IRC
     #######################################################
-    
+
     # prepare irc job
     TSE, TSG = tsopt_job.get_final_ts()
     xyz_write(f"{tsopt_job.work_folder}/{tsopt_job.jobname}-TS.xyz", TSE, TSG)

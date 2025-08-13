@@ -121,9 +121,7 @@ class PYGSM:
         # Handle restart if needed
         if self.restart:
             opt_strings = [
-                f
-                for f in os.listdir(self.work_folder_temp)
-                if "opt_iters_" in f
+                f for f in os.listdir(self.work_folder_temp) if "opt_iters_" in f
             ]
             if opt_strings:
                 last_ind = max(
@@ -139,9 +137,7 @@ class PYGSM:
                 )
                 self.command += f" -restart_file {self.work_folder}/restart.xyz"
 
-        print(
-            f"pyGSM {self.jobname}: Finished prepping"
-        )
+        print(f"pyGSM {self.jobname}: Finished prepping")
 
     def execute(self, timeout=3600):
         """Execute a GSM calculation.

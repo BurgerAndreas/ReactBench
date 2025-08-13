@@ -6,7 +6,7 @@ from omegaconf import DictConfig
 import os
 import torch
 from gadff.logging_utils import name_from_config, find_latest_checkpoint
-from gadff.horm.eval_horm import evaluate 
+from gadff.horm.eval_horm import evaluate
 from ReactBench.main import launch_tssearch_processes
 
 
@@ -35,19 +35,21 @@ def get_ckpt_name(cfg: DictConfig):
     return cfg.ckpt_trainer_path
 
 
-@hydra.main(version_base=None, config_path="../gad-ff/configs", config_name="train_eigen")
+@hydra.main(
+    version_base=None, config_path="../gad-ff/configs", config_name="train_eigen"
+)
 def main(cfg: DictConfig) -> None:
     # get extra args from config
     hessian_method = cfg.eval_hessian_method
     max_samples = cfg.get("eval_max_samples", 1000)
-    
+
     ckpt_path = get_ckpt_name(cfg)
     if ckpt_path is None:
         print("No checkpoint found, exiting")
         return
-    
+
     print(f"Evaluating checkpoint: {ckpt_path}")
-    
+
     REACT_DIR = "/project/aip-aspuru/aburger/ReactBench"
     GAD_DIR = "/project/aip-aspuru/aburger/gad-ff"
     if not os.path.exists(GAD_DIR):
@@ -66,7 +68,7 @@ def main(cfg: DictConfig) -> None:
     model_config = ckpt["hyper_parameters"]["model_config"]
     # model_type = model_config["model_type"]
     print(f"Model name: {model_name}")
-    
+
     # This will launch a wandb run
     # TODO: init wandb run here, pass wandb_run_id to evaluate
     hormmetrics = evaluate(
@@ -76,9 +78,9 @@ def main(cfg: DictConfig) -> None:
         hessian_method=hessian_method,
         max_samples=max_samples,
         wandb_run_id=None,
-        wandb_kwargs={"tags": ["evalckpt"]}
+        wandb_kwargs={"tags": ["evalckpt"]},
     )
-    
+
     #######################################################################
     # Transition state search workflow
     #######################################################################
@@ -88,18 +90,21 @@ def main(cfg: DictConfig) -> None:
 
     parameters_yaml = f"{REACT_DIR}/config_killarney.yaml"
     parameters = yaml.load(open(parameters_yaml, "r"), Loader=yaml.FullLoader)
-    
+
     parameters["ckpt_path"] = ckpt_path
     parameters["config_path"] = "auto"
     parameters["hessian_method"] = hessian_method
     parameters["reactbench_path"] = REACT_DIR
     # TODO: also support leftnet, leftnet-df, mace, alphanet
     parameters["calc"] = "equiformer"
-    
+
     # This will launch another wandb run
-    launch_tssearch_processes(parameters, wandb_run_id=None, wandb_kwargs={"tags": ["evalckpt"]})
-    
+    launch_tssearch_processes(
+        parameters, wandb_run_id=None, wandb_kwargs={"tags": ["evalckpt"]}
+    )
+
     return
+
 
 if __name__ == "__main__":
     """

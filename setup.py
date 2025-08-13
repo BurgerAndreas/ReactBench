@@ -6,9 +6,8 @@ setup(
     # packages=find_packages(),
     packages=["ReactBench"],
     entry_points={
-        'console_scripts': [
-            'reactbench=ReactBench.main:main',
+        "console_scripts": [
+            "reactbench=ReactBench.main:main",
         ],
     },
 )
-
