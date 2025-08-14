@@ -149,6 +149,7 @@ class EquiformerCalculator(Calculator):
                     self.results["hessian"] = (
                         out["hessian"].detach().cpu().numpy().reshape(N * 3, N * 3)
                     )
+                    self.cnt_hessian_predict += 1
 
         # Store results
         self.results = {}
@@ -160,7 +161,8 @@ class EquiformerCalculator(Calculator):
             hessian = compute_hessian(batch.pos, energy, forces).detach().cpu().numpy()
             N = batch.pos.shape[0]
             self.results["hessian"] = hessian.reshape(N * 3, N * 3)
-
+            self.cnt_hessian_autograd += 1
+            
         # Forces shape: [n_atoms, 3]
         self.results["forces"] = forces.detach().cpu().numpy().reshape(-1)
 
@@ -274,6 +276,7 @@ class EquiformerMLFF:
                 hessian = hessian.reshape(N * 3, N * 3)
                 hessian = hessian / AU2EV * BOHR2ANG * BOHR2ANG
             self.model.cnt_hessian_autograd += 1
+            self.cnt_hessian_autograd += 1
             energy = energy.item() / AU2EV
 
         elif hessian_method == "predict":
@@ -281,14 +284,14 @@ class EquiformerMLFF:
                 energy, forces, out = self.model.potential.forward(
                     batch, eigen=False, hessian=True
                 )
-                self.model.cnt_hessian_predict += 1
                 hessian = (
                     out["hessian"].detach().cpu().numpy() / AU2EV * BOHR2ANG * BOHR2ANG
                 )
                 N = batch.pos.shape[0]
                 hessian = hessian.reshape(N * 3, N * 3)
                 energy = energy.item() / AU2EV
-
+            self.model.cnt_hessian_predict += 1
+            self.cnt_hessian_predict += 1
         else:
             raise ValueError(f"Invalid hessian method: {hessian_method}")
 

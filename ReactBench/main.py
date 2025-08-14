@@ -43,8 +43,10 @@ def print_error_content(errlog, logger):
     if os.path.exists(errlog):
         with open(errlog, "r", encoding="utf-8") as f:
             content = f.read().strip()
-            content = "\n# " + errlog + "\n" + content
+            content = "\n# " + "print_error_content" + os.path.basename(errlog) + "\n" + "".join(content)
+            content = ">" * 40 + "\n" + content # REMOVE
             content += "\n# ---"
+            content += "\n" + "<" * 40 # REMOVE
         print(content)
         logger.info(content)
     else:
@@ -70,7 +72,7 @@ def generate_run_name(args):
 
 # Background monitor: periodically read result files and log to wandb
 def _monitor_results_periodically(
-    scratch_dir: str, stop_evt: threading.Event, interval_sec: int = 60
+    scratch_dir: str, stop_evt: threading.Event, interval_sec: int = 60, print_logs: bool = False
 ):
     prev_pygsm_output_files = set()
     prev_pysistsopt_output_files = set()
@@ -112,12 +114,13 @@ def _monitor_results_periodically(
                 f for f in pygsm_output_files if f not in prev_pygsm_output_files
             ]
             prev_pygsm_output_files = set(pygsm_output_files)
-            for f in new_pygsm_output_files:
-                with open(f, "r", encoding="utf-8") as f:
-                    lines = f.readlines()
-                    print(f"\n# {f}")
-                    print(lines[-20:])
-                    print("")
+            if print_logs:
+                for f in new_pygsm_output_files:
+                    with open(f, "r", encoding="utf-8") as f:
+                        lines = f.readlines()
+                        print(f"\n# {f.name}")
+                        print("".join([_ for _ in lines[-20:] if len(_) > 2]))
+                        print("# ---", "\n")
 
             # Count TSOPT results
             # runs/equiformer*/rxn123/TSOPT/pysis_tsopt_output.txt
@@ -128,14 +131,18 @@ def _monitor_results_periodically(
                 f for f in pysistsopt_output_files if os.path.isfile(f)
             ]
             n_pysistsopt_output_files = len(pysistsopt_output_files)
-            # get last 20 lines, search for msg after "pysis result:"
+            # get last lines, search for msg after "pysis result:"
             tsopt_outs = {}
             pysis_times_taken = []
             pysis_cycles_taken = []
+            autograd_neg_num = []
+            predict_neg_num = []
+            cnt_hessian_autograd = []
+            cnt_hessian_predict = []
             for f in pysistsopt_output_files:
                 with open(f, "r", encoding="utf-8") as f:
                     lines = f.readlines()
-                    for line in reversed(lines[-50:]):
+                    for line in reversed(lines[-60:]):
                         # pysis result:
                         if "pysis result:" in line:
                             msg = line.split("pysis result:")[1].strip()
@@ -155,6 +162,33 @@ def _monitor_results_periodically(
                                     line.split("Time taken:")[1].split("s")[0].strip()
                                 )
                             )
+                        # autograd neg_num: ...
+                        if "autograd neg_num:" in line:
+                            autograd_neg_num.append(
+                                int(line.split("autograd neg_num:")[1].strip())
+                            )
+                        # predict neg_num: ...
+                        if "predict neg_num:" in line:
+                            predict_neg_num.append(
+                                int(line.split("predict neg_num:")[1].strip())
+                            )
+                        # cnt_hessian_autograd: ...
+                        if "cnt_hessian_autograd:" in line:
+                            cnt_hessian_autograd.append(
+                                int(line.split("cnt_hessian_autograd:")[1].strip())
+                            )
+                        # cnt_hessian_predict: ...
+                        if "cnt_hessian_predict:" in line:
+                            cnt_hessian_predict.append(
+                                int(line.split("cnt_hessian_predict:")[1].strip())
+                            )
+            
+            # count how many neg_num are == 1
+            predict_neg_num_one = sum(1 for x in predict_neg_num if x == 1)
+            autograd_neg_num_one = sum(1 for x in autograd_neg_num if x == 1)
+            # count how many neg_num agree between autograd and predict
+            neg_num_agree = sum(1 for x, y in zip(autograd_neg_num, predict_neg_num) if x == y)
+            neg_num_found = len(autograd_neg_num)
 
             # for new pysis_tsopt_output.txt files, print last 50 lines
             new_pysistsopt_output_files = [
@@ -163,12 +197,13 @@ def _monitor_results_periodically(
                 if f not in prev_pysistsopt_output_files
             ]
             prev_pysistsopt_output_files = set(pysistsopt_output_files)
-            for f in new_pysistsopt_output_files:
-                with open(f, "r", encoding="utf-8") as f:
-                    lines = f.readlines()
-                    print(f"\n# {f.name}")  # _io.TextIOWrapper
-                    print("".join(lines[-50:]))
-                    print("")
+            if print_logs:
+                for f in new_pysistsopt_output_files:
+                    with open(f, "r", encoding="utf-8") as f:
+                        lines = f.readlines()
+                        print(f"\n# {f.name}")  # _io.TextIOWrapper
+                        print("".join([_ for _ in lines[-50:] if len(_) > 2]))
+                        print("# ---", "\n")
 
             # Count TSOPT and IRC results
             tsopt_results = 0
@@ -202,6 +237,14 @@ def _monitor_results_periodically(
                 "monitor/irc_results": irc_results,
                 "monitor/active_jobs": len(job_dirs),
                 "monitor/pygsm_output_files": n_pygsm_output_files,
+                "monitor/pysistsopt_output_files": n_pysistsopt_output_files,
+                "monitor/cnt_hessian_autograd": np.mean(cnt_hessian_autograd) if cnt_hessian_autograd else 0,
+                "monitor/cnt_hessian_predict": np.mean(cnt_hessian_predict) if cnt_hessian_predict else 0,
+                # Hessian eigenvalues / frequencies
+                "monitor/predict_neg_num_one": predict_neg_num_one,
+                "monitor/autograd_neg_num_one": autograd_neg_num_one,
+                "monitor/neg_num_agree": neg_num_agree,
+                "monitor/neg_num_found": neg_num_found,
             }
             if times_taken:
                 metrics["monitor/gsm_time_taken"] = sum(times_taken) / len(times_taken)
@@ -445,24 +488,50 @@ def launch_tssearch_processes(args: dict, wandb_run_id=None, wandb_kwargs={}):
 
     # Count successful TS optimizations
     ts_success = 0
-    convert_ts = 0
-    converged_ts = 0
+    ts_success_autograd = 0
+    ts_success_predict = 0
+    ts_success_autograd_predict = 0
+    convert_ts = 0 # local TS search converged and found an index-1 saddle point (one imaginary frequency)
+    converged_ts = 0 # local TS search converged 
     for folder in glob(f"{scratch}/*/TSOPT"):
         with open(os.path.join(folder, "pysis_tsopt_output.txt"), "r") as f:
             lines = f.readlines()
             true_ts = False
-            for line in reversed(lines):
+            true_ts_autograd = False
+            true_ts_predict = False
+            run_converged = False
+            for line in lines[-80:]:
                 if "Imaginary frequencies" in line:
+                    # end point is index-1 saddle point (one imaginary frequency)
                     freq = line.split("[")[1].split("]")[0].split()
                     if len(freq) == 1 and float(freq[0]) < -10:
-                        ts_success += 1
                         true_ts = True
-                if "Converged!" in line:
-                    converged_ts += 1
-                    if true_ts:
-                        convert_ts += 1
+                if "autograd img freqs:" in line:
+                    freq = line.split("[")[1].split("]")[0].split()
+                    if len(freq) == 1 and float(freq[0]) < -10:
+                        true_ts_autograd = True
+                if "predict img freqs:" in line:
+                    freq = line.split("[")[1].split("]")[0].split()
+                    if len(freq) == 1 and float(freq[0]) < -10:
+                        true_ts_predict = True
+                if line.strip() == "Converged!":
+                    run_converged = True
+        if run_converged:
+            # local TS search converged 
+            converged_ts += 1
+        if true_ts:
+            ts_success += 1
+        if true_ts_autograd:
+            ts_success_autograd += 1
+        if true_ts_predict:
+            ts_success_predict += 1
+        if true_ts_autograd and true_ts_predict:
+            ts_success_autograd_predict += 1
+        if true_ts and run_converged:
+            # local TS search converged and found an index-1 saddle point (one imaginary frequency)
+            convert_ts += 1
 
-    print(f"Number of successful TS optimizations: {ts_success}({convert_ts})")
+    print(f"Number of successful TS optimizations: {ts_success} ({convert_ts} also converged)")
 
     # Count successful IRC calculations
     irc_success = 0
@@ -475,8 +544,7 @@ def launch_tssearch_processes(args: dict, wandb_run_id=None, wandb_kwargs={}):
             # This counts how many structures have energies different from the minimum.
             # Since one structure will always be 0 (the lowest energy), having ≥2 non-zero values means:
             # At least 3 distinct energy levels were found (minimum + 2 others)
-            # The IRC successfully traced from TS to different reactant/product structures
-            for line in lines:
+            for line in lines[-30:]:
                 # example line:
                 # Left:   413.21 kJ mol⁻¹ (1 geometry)
                 # TS:   620.89 kJ mol⁻¹ (1 geometry)
@@ -493,6 +561,7 @@ def launch_tssearch_processes(args: dict, wandb_run_id=None, wandb_kwargs={}):
     print(f"Number of successful IRC calculations: {irc_success}")
 
     # Count intended reactions if IRC-record.txt exists
+    # Intended means that the IRC calculation converged to the reactant and product structures
     irc_record = os.path.join(scratch, "IRC-record.txt")
     if os.path.exists(irc_record):
         with open(irc_record, "r") as f:
@@ -502,13 +571,21 @@ def launch_tssearch_processes(args: dict, wandb_run_id=None, wandb_kwargs={}):
     # summarize into a dictionary
     ts_success_dict = {
         "gsm_success": gsm_success,
-        "ts_success": ts_success,
+        "ts_success": ts_success, # true_ts
+        "ts_success_autograd": ts_success_autograd,
+        "ts_success_predict": ts_success_predict,
+        "ts_success_autograd_predict": ts_success_autograd_predict,
+        "converged_ts": converged_ts,
         "convert_ts": convert_ts,
         "irc_success": irc_success,
         "intended_count": intended_count,
     }
     if wandb.run is not None:
         wandb.log(ts_success_dict)
+    
+    print("\nResults:")
+    for k, v in ts_success_dict.items():
+        print(f"{k}: {v}")
 
     # Cleanup results if specified in config
     if args.get("cleanup_results", False):
