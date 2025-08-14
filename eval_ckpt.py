@@ -72,7 +72,7 @@ def main(cfg: DictConfig) -> None:
     # This will launch a wandb run
     # TODO: init wandb run here, pass wandb_run_id to evaluate
     hormmetrics = evaluate(
-        lmdb_path=f"ts1x-val.lmdb",
+        lmdb_path="ts1x-val.lmdb",
         checkpoint_path=ckpt_path,
         config_path="auto",
         hessian_method=hessian_method,

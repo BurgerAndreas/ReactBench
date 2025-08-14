@@ -567,6 +567,24 @@ def launch_tssearch_processes(args: dict, wandb_run_id=None, wandb_kwargs={}):
         with open(irc_record, "r") as f:
             intended_count = sum(line.count("Intended") for line in f)
         print(f"Number of intended reactions:          {intended_count}")
+        
+    # Collect the paths for all hessians after the local TS search
+    autograd_hessian_paths = glob(f"{scratch}/*/TSOPT/final_hessian_autograd.h5")
+    predict_hessian_paths = glob(f"{scratch}/*/TSOPT/final_hessian_predict.h5")
+    # ts_final_geometry.xyz
+    geom_paths = glob(f"{scratch}/*/TSOPT/ts_final_geometry.xyz")
+    
+    # make a new directory and save the paths
+    os.makedirs(f"{scratch}/ts_geoms_hessians", exist_ok=True)
+    for path in autograd_hessian_paths:
+        shutil.copy(path, f"{scratch}/ts_geoms_hessians/autograd_hessian.h5")
+    for path in predict_hessian_paths:
+        shutil.copy(path, f"{scratch}/ts_geoms_hessians/predict_hessian.h5")
+    for path in geom_paths:
+        shutil.copy(path, f"{scratch}/ts_geoms_hessians/ts_final_geometry.xyz")
+    # print size of the directory
+    size_dir = os.path.getsize(f'{scratch}/ts_geoms_hessians') / 1024 / 1024 / 1024
+    print(f"Size of ts_geoms_hessians directory: {size_dir:.2f} GB")
 
     # summarize into a dictionary
     ts_success_dict = {
@@ -579,6 +597,10 @@ def launch_tssearch_processes(args: dict, wandb_run_id=None, wandb_kwargs={}):
         "convert_ts": convert_ts,
         "irc_success": irc_success,
         "intended_count": intended_count,
+        "num_autograd_hessians": len(autograd_hessian_paths),
+        "num_predict_hessians": len(predict_hessian_paths),
+        "num_geom_files": len(geom_paths),
+        "size_ts_geoms_hessians": size_dir,
     }
     if wandb.run is not None:
         wandb.log(ts_success_dict)
