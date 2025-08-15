@@ -548,9 +548,20 @@ def wrapper_de_gsm(
     post_processing(gsm, have_TS=True)
 
     if hasattr(calculator, "cnt_hessian_autograd"):
-        print(f"cnt_hessian_autograd: {calculator.cnt_hessian_autograd}")
+        print(
+            f"wrapper_de_gsm: cnt_hessian_autograd: {calculator.cnt_hessian_autograd}"
+        )
     if hasattr(calculator, "cnt_hessian_predict"):
-        print(f"cnt_hessian_predict: {calculator.cnt_hessian_predict}")
+        print(f"wrapper_de_gsm: cnt_hessian_predict: {calculator.cnt_hessian_predict}")
+
+    # compute and save the hessian
+    print(f"wrapper_de_gsm: {calculator.__class__.__name__}")
+    print(f"wrapper_de_gsm: {calculator.hessian_method}")
+    try:
+        hes = calculator.get_hessian(gsm.nodes[gsm.TSnode].geometry)
+        write(f"hessian_{gsm.ID}.npy", hes)
+    except:
+        print(f"wrapper_de_gsm: failed to compute hessian")
 
     # cleanup
     cleanup_scratch(gsm.ID)

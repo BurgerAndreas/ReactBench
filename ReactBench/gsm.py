@@ -205,11 +205,11 @@ class PYGSM:
                 msg = f"pyGSM {self.jobname}: Failed. Returncode: {result.returncode}. Check {self.errlog}"
                 msg += f"\nresult: \n{result}"
 
-            # copy the last 20 lines of the output file to a new result file
+            # copy the last 50 lines of the output file to a new result file
             with open(self.output, "r", encoding="utf-8") as f:
                 lines = f.readlines()
             with open(self.result_file, "a", encoding="utf-8") as f:
-                f.write("".join(lines[-20:]))
+                f.write("".join(lines[-50:]))
                 f.write("\n" + msg)
 
             return msg

@@ -162,7 +162,7 @@ class EquiformerCalculator(Calculator):
             N = batch.pos.shape[0]
             self.results["hessian"] = hessian.reshape(N * 3, N * 3)
             self.cnt_hessian_autograd += 1
-            
+
         # Forces shape: [n_atoms, 3]
         self.results["forces"] = forces.detach().cpu().numpy().reshape(-1)
 

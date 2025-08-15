@@ -227,6 +227,34 @@ calc can be: leftnet, leftnet-d, mace-pretrain, mace-finetuned, equiformer
    e. Modify the `calc` parameter in `config.yaml` to use your calculator
 
 
+
+### Compare to DFT Hessian via PySCF
+
+Use PySCF to compute a DFT Hessian at ωB97X/6-31G(d) for a given XYZ.
+
+```bash
+# Install uv (if not already installed)
+curl -LsSf https://astral.sh/uv/install.sh | sh
+export PATH="$HOME/.local/bin:$PATH"
+
+# Create and activate a local venv (Python 3.11)
+uv venv -p 3.11 .venv
+source .venv/bin/activate
+
+# Install PySCF
+uv pip install --upgrade pip
+uv pip install pyscf
+uv pip install gpu4pyscf-cuda12x cutensor-cu12
+
+# Run the Hessian computation on the provided example
+uv run compute_hessian_dft.py data/hessiantest/ts_test.xyz --out resultsdft/test/ts_test_hessian.npy --txt resultsdft/test/ts_test_hessian.txt
+```
+
+Outputs:
+- `data/ts_test_hessian.npy`: Hessian matrix in atomic units (Hartree/Bohr^2)
+- `data/ts_test_hessian.txt`: Optional text dump
+
+
 ### Citation
 
 ```

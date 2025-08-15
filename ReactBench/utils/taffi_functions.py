@@ -3,6 +3,7 @@ This module contains miscellaneous functions borrowed from the taffi package tha
 useful for yarp.
 """
 
+import inspect
 import numpy as np
 from scipy.spatial.distance import cdist
 from copy import copy, deepcopy
@@ -10,7 +11,9 @@ from copy import copy, deepcopy
 from ReactBench.utils.properties import el_radii, el_max_bonds
 
 
-def table_generator(elements, geometry, scale_factor=1.2, filename=None):
+def table_generator(
+    elements, geometry, scale_factor=1.2, filename=None, print_warnings=True
+):
     """
     Algorithm for finding the adjacency matrix of a geometry based on atomic separations.
 
@@ -100,133 +103,135 @@ def table_generator(elements, geometry, scale_factor=1.2, filename=None):
                 adj_mat[idx, count_i] = 0
 
     # Print warning messages for obviously suspicious bonding motifs.
-    if sum([problem_dict[i] for i in problem_dict.keys()]) > 0:
-        print("Table Generation Warnings:")
-        for i in sorted(problem_dict.keys()):
-            if problem_dict[i] > 0:
-                if filename is None:
-                    if i == "H":
-                        print(
-                            "WARNING in Table_generator: {} hydrogen(s) have more than one bond.".format(
-                                problem_dict[i]
+    if print_warnings:
+        if sum([problem_dict[i] for i in problem_dict.keys()]) > 0:
+            print("Table Generation Warnings:")
+            print(f"Called by function: {inspect.currentframe().f_code.co_name}")
+            for i in sorted(problem_dict.keys()):
+                if problem_dict[i] > 0:
+                    if filename is None:
+                        if i == "H":
+                            print(
+                                "WARNING in Table_generator: {} hydrogen(s) have more than one bond.".format(
+                                    problem_dict[i]
+                                )
                             )
-                        )
-                    if i == "C":
-                        print(
-                            "WARNING in Table_generator: {} carbon(s) have more than four bonds.".format(
-                                problem_dict[i]
+                        if i == "C":
+                            print(
+                                "WARNING in Table_generator: {} carbon(s) have more than four bonds.".format(
+                                    problem_dict[i]
+                                )
                             )
-                        )
-                    if i == "Si":
-                        print(
-                            "WARNING in Table_generator: {} silicons(s) have more than four bonds.".format(
-                                problem_dict[i]
+                        if i == "Si":
+                            print(
+                                "WARNING in Table_generator: {} silicons(s) have more than four bonds.".format(
+                                    problem_dict[i]
+                                )
                             )
-                        )
-                    if i == "F":
-                        print(
-                            "WARNING in Table_generator: {} fluorine(s) have more than one bond.".format(
-                                problem_dict[i]
+                        if i == "F":
+                            print(
+                                "WARNING in Table_generator: {} fluorine(s) have more than one bond.".format(
+                                    problem_dict[i]
+                                )
                             )
-                        )
-                    if i == "Cl":
-                        print(
-                            "WARNING in Table_generator: {} chlorine(s) have more than one bond.".format(
-                                problem_dict[i]
+                        if i == "Cl":
+                            print(
+                                "WARNING in Table_generator: {} chlorine(s) have more than one bond.".format(
+                                    problem_dict[i]
+                                )
                             )
-                        )
-                    if i == "Br":
-                        print(
-                            "WARNING in Table_generator: {} bromine(s) have more than one bond.".format(
-                                problem_dict[i]
+                        if i == "Br":
+                            print(
+                                "WARNING in Table_generator: {} bromine(s) have more than one bond.".format(
+                                    problem_dict[i]
+                                )
                             )
-                        )
-                    if i == "I":
-                        print(
-                            "WARNING in Table_generator: {} iodine(s) have more than one bond.".format(
-                                problem_dict[i]
+                        if i == "I":
+                            print(
+                                "WARNING in Table_generator: {} iodine(s) have more than one bond.".format(
+                                    problem_dict[i]
+                                )
                             )
-                        )
-                    if i == "O":
-                        print(
-                            "WARNING in Table_generator: {} oxygen(s) have more than two bonds.".format(
-                                problem_dict[i]
+                        if i == "O":
+                            print(
+                                "WARNING in Table_generator: {} oxygen(s) have more than two bonds.".format(
+                                    problem_dict[i]
+                                )
                             )
-                        )
-                    if i == "N":
-                        print(
-                            "WARNING in Table_generator: {} nitrogen(s) have more than four bonds.".format(
-                                problem_dict[i]
+                        if i == "N":
+                            print(
+                                "WARNING in Table_generator: {} nitrogen(s) have more than four bonds.".format(
+                                    problem_dict[i]
+                                )
                             )
-                        )
-                    if i == "B":
-                        print(
-                            "WARNING in Table_generator: {} bromine(s) have more than four bonds.".format(
-                                problem_dict[i]
+                        if i == "B":
+                            print(
+                                "WARNING in Table_generator: {} bromine(s) have more than four bonds.".format(
+                                    problem_dict[i]
+                                )
                             )
-                        )
-                else:
-                    if i == "H":
-                        print(
-                            "WARNING in Table_generator: parsing {}, {} hydrogen(s) have more than one bond.".format(
-                                filename, problem_dict[i]
+                    else:
+                        if i == "H":
+                            print(
+                                "WARNING in Table_generator: parsing {}, {} hydrogen(s) have more than one bond.".format(
+                                    filename, problem_dict[i]
+                                )
                             )
-                        )
-                    if i == "C":
-                        print(
-                            "WARNING in Table_generator: parsing {}, {} carbon(s) have more than four bonds.".format(
-                                filename, problem_dict[i]
+                        if i == "C":
+                            print(
+                                "WARNING in Table_generator: parsing {}, {} carbon(s) have more than four bonds.".format(
+                                    filename, problem_dict[i]
+                                )
                             )
-                        )
-                    if i == "Si":
-                        print(
-                            "WARNING in Table_generator: parsing {}, {} silicons(s) have more than four bonds.".format(
-                                filename, problem_dict[i]
+                        if i == "Si":
+                            print(
+                                "WARNING in Table_generator: parsing {}, {} silicons(s) have more than four bonds.".format(
+                                    filename, problem_dict[i]
+                                )
                             )
-                        )
-                    if i == "F":
-                        print(
-                            "WARNING in Table_generator: parsing {}, {} fluorine(s) have more than one bond.".format(
-                                filename, problem_dict[i]
+                        if i == "F":
+                            print(
+                                "WARNING in Table_generator: parsing {}, {} fluorine(s) have more than one bond.".format(
+                                    filename, problem_dict[i]
+                                )
                             )
-                        )
-                    if i == "Cl":
-                        print(
-                            "WARNING in Table_generator: parsing {}, {} chlorine(s) have more than one bond.".format(
-                                filename, problem_dict[i]
+                        if i == "Cl":
+                            print(
+                                "WARNING in Table_generator: parsing {}, {} chlorine(s) have more than one bond.".format(
+                                    filename, problem_dict[i]
+                                )
                             )
-                        )
-                    if i == "Br":
-                        print(
-                            "WARNING in Table_generator: parsing {}, {} bromine(s) have more than one bond.".format(
-                                filename, problem_dict[i]
+                        if i == "Br":
+                            print(
+                                "WARNING in Table_generator: parsing {}, {} bromine(s) have more than one bond.".format(
+                                    filename, problem_dict[i]
+                                )
                             )
-                        )
-                    if i == "I":
-                        print(
-                            "WARNING in Table_generator: parsing {}, {} iodine(s) have more than one bond.".format(
-                                filename, problem_dict[i]
+                        if i == "I":
+                            print(
+                                "WARNING in Table_generator: parsing {}, {} iodine(s) have more than one bond.".format(
+                                    filename, problem_dict[i]
+                                )
                             )
-                        )
-                    if i == "O":
-                        print(
-                            "WARNING in Table_generator: parsing {}, {} oxygen(s) have more than two bonds.".format(
-                                filename, problem_dict[i]
+                        if i == "O":
+                            print(
+                                "WARNING in Table_generator: parsing {}, {} oxygen(s) have more than two bonds.".format(
+                                    filename, problem_dict[i]
+                                )
                             )
-                        )
-                    if i == "N":
-                        print(
-                            "WARNING in Table_generator: parsing {}, {} nitrogen(s) have more than four bonds.".format(
-                                filename, problem_dict[i]
+                        if i == "N":
+                            print(
+                                "WARNING in Table_generator: parsing {}, {} nitrogen(s) have more than four bonds.".format(
+                                    filename, problem_dict[i]
+                                )
                             )
-                        )
-                    if i == "B":
-                        print(
-                            "WARNING in Table_generator: parsing {}, {} bromine(s) have more than four bonds.".format(
-                                filename, problem_dict[i]
+                        if i == "B":
+                            print(
+                                "WARNING in Table_generator: parsing {}, {} bromine(s) have more than four bonds.".format(
+                                    filename, problem_dict[i]
+                                )
                             )
-                        )
-        print("")
+            print("")
 
     return adj_mat
 

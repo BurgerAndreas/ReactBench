@@ -407,8 +407,9 @@ class PYSIS:
                 remove_h5s = [
                     h5 for h5 in os.listdir(self.work_folder) if h5.endswith(".h5")
                 ]
+                h5_ignores = ["final_hessian", "initial_hessian"]
                 for h5 in remove_h5s:
-                    if "final_hessian" not in h5:
+                    if not any(ignore in h5 for ignore in h5_ignores):
                         os.remove(os.path.join(self.work_folder, h5))
 
                 # remove useless log files
@@ -494,8 +495,8 @@ class PYSIS:
         elements, initial_geom = xyz_parse(self.input_geo)
         _, final_geom = self.get_opted_geo()
 
-        adj_mat_initial = table_generator(elements, initial_geom)
-        adj_mat_final = table_generator(elements, final_geom)
+        adj_mat_initial = table_generator(elements, initial_geom, print_warnings=False)
+        adj_mat_final = table_generator(elements, final_geom, print_warnings=False)
 
         if np.array_equal(adj_mat_initial, adj_mat_final):
             return True
@@ -535,7 +536,7 @@ class PYSIS:
                     self.freq_analysis["num_im_freqs"] = len(freqs)
                     _is_true_ts["default"] = len(freqs) == 1 and freqs[0] < -10
                 for hessian_method in ["autograd", "predict"]:
-                    if f"{hessian_method} Img freqs:" in line:
+                    if f"{hessian_method} img freqs:" in line:
                         freqs = [float(x) for x in re.findall(r"-?\d+\.?\d*", line)]
                         self.freq_analysis[hessian_method] = len(freqs)
                         _is_true_ts[hessian_method] = len(freqs) == 1 and freqs[0] < -10
