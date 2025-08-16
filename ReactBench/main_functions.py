@@ -5,11 +5,17 @@ from ReactBench.utils.parsers import xyz_parse, xyz_write, mol_write
 from ReactBench.utils.find_lewis import find_lewis
 from ReactBench.utils.taffi_functions import table_generator
 
-from openbabel import pybel
+try:
+    from openbabel import pybel
+except ImportError:
+    pybel = None
 
 
 def return_smi(E, G, bond_mat=None, namespace="obabel"):
     """Function to Return smiles string using openbabel (pybel)"""
+    if pybel is None:
+        print("OpenBabel is not installed, cannot use return_smi")
+        return None
     if bond_mat is None:
         xyz_write(f"{namespace}_input.xyz", E, G)
         # Read the XYZ file using Open Babel

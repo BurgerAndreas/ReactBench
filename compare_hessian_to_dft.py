@@ -1,15 +1,17 @@
+from __future__ import annotations
+
 import numpy as np
 import argparse
-import h5py
-from tqdm import tqdm
-import wandb
 import pandas as pd
-import plotly.graph_objects as go
-import time
-import sys
-import json
-from pathlib import Path
 import os
+import glob
+import shutil
+from tqdm import tqdm
+from typing import List, Tuple
+
+from ReactBench.utils.frequency_analysis import analyze_frequencies
+
+from pyscf import dft, gto
 
 from pysisyphus.config import p_DEFAULT, T_DEFAULT, LIB_DIR
 from pysisyphus.constants import ANG2BOHR, AU2KJPERMOL
@@ -37,11 +39,46 @@ from pysisyphus.io import (
 
 
 def get_geometries_and_hessians(args):
-    pass
+    autograd_hessians = glob.glob(f"{args.inp_path}/*_autograd_hessian.h5")
+    predicted_hessians = glob.glob(f"{args.inp_path}/*_predict_hessian.h5")
+    geometries = glob.glob(f"{args.inp_path}/*ts_final_geometry.xyz")
+    assert len(autograd_hessians) == len(predicted_hessians) == len(geometries), (
+        f"Number of hessians and geometries do not match: {len(autograd_hessians)}, {len(predicted_hessians)}, {len(geometries)}"
+    )
+    return geometries, predicted_hessians, autograd_hessians
 
 
-def run_dft(geometries, args):
-    pass
+# pysisyphus
+def run_dft(geometries, outdir, args):
+    max_samples = args.get("max_samples", None)
+    if max_samples is None:
+        max_samples = len(geometries)
+    dft_hessian_paths = []
+    for geom_path in tqdm(geometries[:max_samples], desc="DFT Hessian", total=max_samples):
+        fname = geom_path.split("/")[-1].split("_")[0]  # rxn9
+        fname = f"{fname}_dft_hessian.h5"
+        if os.path.exists(os.path.join(outdir, fname)):
+            continue
+        xyz_path = os.path.abspath(geom_path)
+        atoms = read_xyz(xyz_path)
+        mol = build_molecule(atoms)
+        hessian_dft = compute_hessian(mol, xc="wb97x")
+        # build pysisyphus geometry object
+        atom_symbols = [atom[0] for atom in atoms]
+        coords = np.array([atom[1] for atom in atoms])
+        geom = Geometry(
+            atoms=atom_symbols, coords=coords.flatten() * ANG2BOHR, coord_type="redund"
+        )
+        geom.cart_hessian = hessian_dft
+        geom.energy = 0.0
+        h5_path = os.path.join(outdir, fname)
+        save_h5_hessian(h5_path, geom)
+        # Copy geometry file for future reference
+        geom_fname = f"{fname.split('_')[0]}_geometry.xyz"
+        geom_copy_path = os.path.join(outdir, geom_fname)
+        shutil.copy2(xyz_path, geom_copy_path)
+        dft_hessian_paths.append(h5_path)
+    return dft_hessian_paths
 
 
 # ReactBench/utils/parsers.py
@@ -128,23 +165,131 @@ def xyz_parse(input, multiple=False, return_info=False):
 def compare_hessians(
     geometries, predicted_hessians, autograd_hessians, dft_hessians, args
 ):
+    # Initialize empty list to collect data
+    data_rows = []
+
     for geo, hess_pred, hess_grad, hess_dft in zip(
         geometries, predicted_hessians, autograd_hessians, dft_hessians
     ):
         # eigenvalues, wavenumbers, negative eigenvalues, number of negative eigenvalues
         # of Eckart-projection of mass-weighted hessian
-        eigvals_dft, wn_dft, negeigvals_dft, nneg_dft = frequency_analysis(hess_dft)
-        eigvals_grad, wn_grad, negeigvals_grad, nneg_grad = frequency_analysis(
-            hess_grad
-        )
-        eigvals_pred, wn_pred, negeigvals_pred, nneg_pred = frequency_analysis(
-            hess_pred
+        dft_freqs = analyze_frequencies_pysisyphus(hess_dft)
+        grad_freqs = analyze_frequencies_pysisyphus(hess_grad)
+        pred_freqs = analyze_frequencies_pysisyphus(hess_pred)
+
+        # as a sanity check, compare to ReactBench's frequency analysis
+        mol = xyz_parse(geo)
+        atomsymbols = [atom[0] for atom in mol]
+        coords = np.array([atom[1] for atom in mol])
+        dft_freqs_rb = analyze_frequencies(hess_dft, coords, atomsymbols)
+        if dft_freqs["neg_num"] != dft_freqs_rb["neg_num"]:
+            print(f"DFT frequency analysis mismatch for {geo}")
+            print(
+                f"ReactBench: {dft_freqs_rb['neg_num']}, pysisyphus: {dft_freqs['neg_num']}"
+            )
+            print(
+                f"ReactBench: {dft_freqs_rb['wavenumbers']}, pysisyphus: {dft_freqs['wavenumbers']}"
+            )
+            print(
+                f"ReactBench: {dft_freqs_rb['eigvals']}, pysisyphus: {dft_freqs['eigvals']}"
+            )
+            print(
+                f"ReactBench: {dft_freqs_rb['neg_eigvals']}, pysisyphus: {dft_freqs['neg_eigvals']}"
+            )
+            print(
+                f"ReactBench: {dft_freqs_rb['natoms']}, pysisyphus: {dft_freqs['natoms']}"
+            )
+
+        # Extract reaction index from geometry filename
+        rxn_ind = geo.split("/")[-1].split("_")[0]  # rxn9
+
+        # add nneg, natoms, rxn_ind to the dataframe
+        data_rows.append(
+            {
+                "rxn_ind": rxn_ind,
+                "natoms": dft_freqs["natoms"],
+                "dft_nneg": dft_freqs["neg_num"],
+                "grad_nneg": grad_freqs["neg_num"],
+                "pred_nneg": pred_freqs["neg_num"],
+                "dft_eigvals": dft_freqs["eigvals"],
+                "grad_eigvals": grad_freqs["eigvals"],
+                "pred_eigvals": pred_freqs["eigvals"],
+                "dft_neg_eigvals": dft_freqs["neg_eigvals"],
+                "grad_neg_eigvals": grad_freqs["neg_eigvals"],
+                "pred_neg_eigvals": pred_freqs["neg_eigvals"],
+            }
         )
 
-        # check how many are transition state (index-1 saddle)
-        ists_dft = np.where(np.asarray(nneg_dft) == 1, 1, 0)
-        ists_grad = np.where(np.asarray(nneg_grad) == 1, 1, 0)
-        ists_pred = np.where(np.asarray(nneg_pred) == 1, 1, 0)
+    # Create DataFrame from collected data
+    df_results = pd.DataFrame(data_rows)
+
+    # add new columns to the dataframe
+    # is transition state (index-1 saddle): nneg where == 1
+    df_results["dft_is_ts"] = df_results["dft_nneg"] == 1
+    df_results["grad_is_ts"] = df_results["grad_nneg"] == 1
+    df_results["pred_is_ts"] = df_results["pred_nneg"] == 1
+
+    # regard DFT as ground truth reference
+    # compute TP, FP, TN, FN for grad and pred
+
+    # For autograd hessians vs DFT
+    grad_tp = (df_results["dft_is_ts"] & df_results["grad_is_ts"]).sum()
+    grad_fp = (~df_results["dft_is_ts"] & df_results["grad_is_ts"]).sum()
+    grad_tn = (~df_results["dft_is_ts"] & ~df_results["grad_is_ts"]).sum()
+    grad_fn = (df_results["dft_is_ts"] & ~df_results["grad_is_ts"]).sum()
+
+    # For predicted hessians vs DFT
+    pred_tp = (df_results["dft_is_ts"] & df_results["pred_is_ts"]).sum()
+    pred_fp = (~df_results["dft_is_ts"] & df_results["pred_is_ts"]).sum()
+    pred_tn = (~df_results["dft_is_ts"] & ~df_results["pred_is_ts"]).sum()
+    pred_fn = (df_results["dft_is_ts"] & ~df_results["pred_is_ts"]).sum()
+
+    # Calculate derived metrics
+    grad_accuracy = (grad_tp + grad_tn) / len(df_results) if len(df_results) > 0 else 0
+    grad_precision = grad_tp / (grad_tp + grad_fp) if (grad_tp + grad_fp) > 0 else 0
+    grad_recall = grad_tp / (grad_tp + grad_fn) if (grad_tp + grad_fn) > 0 else 0
+    grad_f1 = (
+        2 * (grad_precision * grad_recall) / (grad_precision + grad_recall)
+        if (grad_precision + grad_recall) > 0
+        else 0
+    )
+
+    pred_accuracy = (pred_tp + pred_tn) / len(df_results) if len(df_results) > 0 else 0
+    pred_precision = pred_tp / (pred_tp + pred_fp) if (pred_tp + pred_fp) > 0 else 0
+    pred_recall = pred_tp / (pred_tp + pred_fn) if (pred_tp + pred_fn) > 0 else 0
+    pred_f1 = (
+        2 * (pred_precision * pred_recall) / (pred_precision + pred_recall)
+        if (pred_precision + pred_recall) > 0
+        else 0
+    )
+
+    # Summary statistics
+    results = {
+        "total_geometries": len(df_results),
+        "dft_ts_count": df_results["dft_is_ts"].sum(),
+        "autograd_stats": {
+            "tp": grad_tp,
+            "fp": grad_fp,
+            "tn": grad_tn,
+            "fn": grad_fn,
+            "accuracy": grad_accuracy,
+            "precision": grad_precision,
+            "recall": grad_recall,
+            "f1_score": grad_f1,
+        },
+        "predicted_stats": {
+            "tp": pred_tp,
+            "fp": pred_fp,
+            "tn": pred_tn,
+            "fn": pred_fn,
+            "accuracy": pred_accuracy,
+            "precision": pred_precision,
+            "recall": pred_recall,
+            "f1_score": pred_f1,
+        },
+    }
+
+    return df_results, results
 
 
 def plot_comparison(args):
@@ -164,13 +309,14 @@ def plot_comparison(args):
 #     return geom
 
 
-def frequency_analysis(h5_hessian_path, ev_thresh=-1e-6):
+def analyze_frequencies_pysisyphus(h5_hessian_path, ev_thresh=-1e-6):
     """
     ev_thresh: threshold for negative eigenvalues
 
     from
     pysisyphus/pysisyphus/helpers.py
     """
+    rxn_ind = h5_hessian_path.split("/")[-1].split("_")[0]  # rxn9
     geom: Geometry = geom_from_hessian(h5_hessian_path)
     # geom.set_calculator(calc_getter())
     print("... started Hessian calculation")
@@ -192,48 +338,150 @@ def frequency_analysis(h5_hessian_path, ev_thresh=-1e-6):
         wavenum_str = np.array2string(wavenumbers, precision=2)
         print("Imaginary frequencies:", wavenum_str, "cm⁻¹")
         print("neg_num:", neg_num)
-    return eigvals, wavenumbers, neg_eigvals, neg_num
+    return {
+        "eigvals": eigvals,
+        "wavenumbers": wavenumbers,
+        "neg_eigvals": neg_eigvals,
+        "neg_num": neg_num,
+        "natoms": len(eigvals) // 3,
+        "rxn_ind": rxn_ind,
+    }
+
+
+def read_xyz(path: str) -> List[Tuple[str, Tuple[float, float, float]]]:
+    with open(path, "r") as f:
+        lines = [ln.strip() for ln in f if ln.strip()]
+    try:
+        nat = int(lines[0].split()[0])
+    except Exception as exc:
+        raise ValueError(f"Invalid XYZ header in {path}: {exc}") from exc
+
+    atom_lines = lines[2 : 2 + nat]
+    atoms: List[Tuple[str, Tuple[float, float, float]]] = []
+    for ln in atom_lines:
+        parts = ln.split()
+        if len(parts) < 4:
+            raise ValueError(f"Invalid XYZ atom line: '{ln}'")
+        sym = parts[0]
+        try:
+            x, y, z = float(parts[1]), float(parts[2]), float(parts[3])
+        except Exception as exc:
+            raise ValueError(f"Invalid coordinates in line: '{ln}'") from exc
+        atoms.append((sym, (x, y, z)))
+    if len(atoms) != nat:
+        raise ValueError(
+            f"XYZ atom count mismatch: header says {nat}, parsed {len(atoms)}"
+        )
+    return atoms
+
+
+def build_molecule(
+    atoms: List[Tuple[str, Tuple[float, float, float]]],
+    charge: int = 0,
+    multiplicity: int = 1,
+) -> gto.Mole:
+    spin = multiplicity - 1  # 2S = multiplicity - 1
+    mol = gto.Mole()
+    mol.atom = atoms  # list[(symbol, (x,y,z))]
+    mol.charge = int(charge)
+    mol.spin = int(spin)
+    mol.basis = "6-31g(d)"
+    mol.unit = "Angstrom"
+    mol.build()
+    return mol
+
+
+def compute_hessian(
+    mol: gto.Mole, multiplicity: int = 1, xc: str = "wb97x"
+) -> np.ndarray:
+    is_open_shell = multiplicity != 1
+    if is_open_shell:
+        mf = dft.UKS(mol)
+    else:
+        mf = dft.RKS(mol)
+    mf.xc = xc
+    # Tighten SCF a bit for stability
+    mf.conv_tol = 1e-9
+    mf.max_cycle = 200
+    mf.verbose = 0  # Suppress SCF convergence messages
+    mf.kernel()
+    if not mf.converged:
+        raise RuntimeError("SCF did not converge; aborting Hessian computation.")
+
+    # Use the generic interface available on the SCF object
+    # (N, N, 3, 3) where N is number of atoms
+    hessian = mf.Hessian().kernel()
+
+    # Properly reshape from (N, N, 3, 3) to (3N, 3N)
+    # Need to transpose axes to get proper ordering: [atom_i, coord_i, atom_j, coord_j]
+    N = mol.natm
+    hes = hessian.transpose(0, 2, 1, 3).reshape(3 * N, 3 * N)
+
+    # hes shape: (3N, 3N), atomic units (Hartree/Bohr^2)
+    return hes
+
+
+def dft_hessian_from_xyz(xyz_path: str) -> None:
+    "Compute DFT Hessian at ωB97X/6-31G(d) from an XYZ geometry using PySCF."
+    xyz_path = os.path.abspath(xyz_path)
+    atoms = read_xyz(xyz_path)
+    mol = build_molecule(atoms)
+    hessian_dft = compute_hessian(mol, xc="wb97x")
+    return hessian_dft
 
 
 if __name__ == "__main__":
-    """
-    python scripts/speed_comparison.py speed --dataset RGD1.lmdb --max_samples_per_n 10 --ckpt_path ../ReactBench/ckpt/hesspred/eqv2hp1.ckpt
-    python scripts/speed_comparison.py speed --dataset ts1x-val.lmdb --max_samples_per_n 100
-    python scripts/speed_comparison.py speed --dataset ts1x_hess_train_big.lmdb --max_samples_per_n 1000
-    """
     parser = argparse.ArgumentParser(
-        description="HORM model evaluation and speed comparison"
-    )
-    subparsers = parser.add_subparsers(dest="command", required=True)
-
-    # Subparser for evaluation
-    eval_parser = subparsers.add_parser(
-        "evaluate",
-        help="Compare frequency analysis of predicted and DFT Hessians at found transition states",
+        description="Compute DFT Hessian at ωB97X/6-31G(d) from an XYZ geometry using PySCF."
     )
 
-    eval_parser.add_argument(
-        "--dataset",
-        "-d",
+    parser.add_argument(
+        "inp_path",
         type=str,
-        default="ts1x-val.lmdb",
-        help="Dataset file name",
+        default="equiformer_alldatagputwoalphadrop0droppathrate0projdrop0",
+        help="Path to the input XYZ geometries.",
     )
-    eval_parser.add_argument(
-        "--max_samples",
-        "-m",
-        type=int,
-        default=None,
-        help="Maximum number of samples to evaluate",
+    parser.add_argument(
+        "--hessian_method",
+        type=str,
+        default="predict",
+        help="Method to use for Hessian. predict or autograd",
     )
-    eval_parser.add_argument(
+    parser.add_argument(
         "--redo",
         type=bool,
         default=False,
-        help="Redo the speed comparison. If false attempt to load existing results.",
+        help="Redo the DFT Hessian computation. If false attempt to load existing results.",
+    )
+    parser.add_argument(
+        "--max_samples",
+        type=int,
+        default=100,
+        help="Maximum number of samples to process. If None, process all samples.",
     )
 
     args = parser.parse_args()
+
+    inp_path = args.inp_path
+    if os.path.isdir(inp_path):
+        pass
+    else:
+        # assume checkpoint name is passed, search for full path
+        # e.g.
+        # equiformer_alldatagputwoalphadrop0droppathrate0projdrop0
+        # runs/equiformer_alldatagputwoalphadrop0droppathrate0projdrop0-394770-20250806-133956_data_predict/ts_geoms_hessians
+        _path = glob.glob(f"runs/{inp_path}*ts1x_{args.hessian_method}/ts_geoms_hessians")
+        if len(_path) == 1:
+            inp_path = _path[0]
+        else:
+            raise ValueError(f"No or multiple runs found for {inp_path}: {_path}")
+    args.inp_path = os.path.abspath(inp_path)
+
+    runname = args.inp_path.split("/")[-2]
+    print(f"Running comparison for {runname}")
+
+    outdir = f"dftruns/{runname}"
+    os.makedirs(outdir, exist_ok=True)
 
     # torch.manual_seed(42)
     np.random.seed(42)
@@ -241,11 +489,45 @@ if __name__ == "__main__":
     paths = get_geometries_and_hessians(args)
     geometries, predicted_hessians, autograd_hessians = paths
 
-    dft_hessians = run_dft(geometries, args)
+    dft_hessians = run_dft(geometries, outdir, args)
 
-    compare_hessians(
+    df_results, results = compare_hessians(
         geometries, predicted_hessians, autograd_hessians, dft_hessians, args
     )
+
+    # Print summary statistics
+    print("\nComparison Results:")
+    print(f"Total geometries analyzed: {results['total_geometries']}")
+    print(f"DFT transition states: {results['dft_ts_count']}")
+    print("\nAutograd Hessian Performance:")
+    print(f"  Accuracy: {results['autograd_stats']['accuracy']:.3f}")
+    print(f"  Precision: {results['autograd_stats']['precision']:.3f}")
+    print(f"  Recall: {results['autograd_stats']['recall']:.3f}")
+    print(f"  F1-score: {results['autograd_stats']['f1_score']:.3f}")
+    print(
+        f"  TP: {results['autograd_stats']['tp']}, FP: {results['autograd_stats']['fp']}"
+    )
+    print(
+        f"  TN: {results['autograd_stats']['tn']}, FN: {results['autograd_stats']['fn']}"
+    )
+    print("\nPredicted Hessian Performance:")
+    print(f"  Accuracy: {results['predicted_stats']['accuracy']:.3f}")
+    print(f"  Precision: {results['predicted_stats']['precision']:.3f}")
+    print(f"  Recall: {results['predicted_stats']['recall']:.3f}")
+    print(f"  F1-score: {results['predicted_stats']['f1_score']:.3f}")
+    print(
+        f"  TP: {results['predicted_stats']['tp']}, FP: {results['predicted_stats']['fp']}"
+    )
+    print(
+        f"  TN: {results['predicted_stats']['tn']}, FN: {results['predicted_stats']['fn']}"
+    )
+
+    # Save results to CSV
+    results_path = f"{outdir}/hessian_comparison_results.csv"
+    df_results.to_csv(results_path, index=False)
+    print(f"\nDetailed results saved to: {results_path}")
     plot_comparison(args)
 
     print("\nDone!")
+
+    # dft_hessian_from_xyz("data/hessiantest/ts_test.xyz")
