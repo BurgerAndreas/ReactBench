@@ -8,6 +8,7 @@ import glob
 import shutil
 from tqdm import tqdm
 from typing import List, Tuple
+import h5py
 
 from ReactBench.utils.frequency_analysis import analyze_frequencies
 
@@ -50,14 +51,16 @@ def get_geometries_and_hessians(args):
 
 # pysisyphus
 def run_dft(geometries, outdir, args):
-    max_samples = args.get("max_samples", None)
+    max_samples = args.max_samples
     if max_samples is None:
         max_samples = len(geometries)
     dft_hessian_paths = []
     for geom_path in tqdm(geometries[:max_samples], desc="DFT Hessian", total=max_samples):
         fname = geom_path.split("/")[-1].split("_")[0]  # rxn9
         fname = f"{fname}_dft_hessian.h5"
-        if os.path.exists(os.path.join(outdir, fname)):
+        h5_path = os.path.join(outdir, fname)
+        if os.path.exists(h5_path):
+            dft_hessian_paths.append(h5_path)
             continue
         xyz_path = os.path.abspath(geom_path)
         atoms = read_xyz(xyz_path)
@@ -71,13 +74,11 @@ def run_dft(geometries, outdir, args):
         )
         geom.cart_hessian = hessian_dft
         geom.energy = 0.0
-        h5_path = os.path.join(outdir, fname)
         save_h5_hessian(h5_path, geom)
         # Copy geometry file for future reference
         geom_fname = f"{fname.split('_')[0]}_geometry.xyz"
         geom_copy_path = os.path.join(outdir, geom_fname)
         shutil.copy2(xyz_path, geom_copy_path)
-        dft_hessian_paths.append(h5_path)
     return dft_hessian_paths
 
 
@@ -161,12 +162,24 @@ def xyz_parse(input, multiple=False, return_info=False):
         else:
             return molecules
 
+def load_hessian_h5(h5_path):
+    with h5py.File(h5_path, "r") as handle:
+        atoms = [atom.capitalize() for atom in handle.attrs["atoms"]]
+        coords3d = handle["coords3d"][:]
+        energy = handle.attrs["energy"]
+        cart_hessian = handle["hessian"][:]
+    return cart_hessian, atoms, coords3d, energy
 
 def compare_hessians(
     geometries, predicted_hessians, autograd_hessians, dft_hessians, args
 ):
     # Initialize empty list to collect data
     data_rows = []
+    
+    assert len(dft_hessians) > 0, "No dft_hessians found"
+    # assert len(geometries) == len(predicted_hessians) == len(autograd_hessians) == len(dft_hessians), (
+    #     f"Number of hessians and geometries do not match: {len(geometries)}, {len(predicted_hessians)}, {len(autograd_hessians)}, {len(dft_hessians)}"
+    # )
 
     for geo, hess_pred, hess_grad, hess_dft in zip(
         geometries, predicted_hessians, autograd_hessians, dft_hessians
@@ -179,16 +192,13 @@ def compare_hessians(
 
         # as a sanity check, compare to ReactBench's frequency analysis
         mol = xyz_parse(geo)
-        atomsymbols = [atom[0] for atom in mol]
-        coords = np.array([atom[1] for atom in mol])
+        atomsymbols = mol[0]
+        coords = np.array(mol[1])
         dft_freqs_rb = analyze_frequencies(hess_dft, coords, atomsymbols)
         if dft_freqs["neg_num"] != dft_freqs_rb["neg_num"]:
             print(f"DFT frequency analysis mismatch for {geo}")
             print(
                 f"ReactBench: {dft_freqs_rb['neg_num']}, pysisyphus: {dft_freqs['neg_num']}"
-            )
-            print(
-                f"ReactBench: {dft_freqs_rb['wavenumbers']}, pysisyphus: {dft_freqs['wavenumbers']}"
             )
             print(
                 f"ReactBench: {dft_freqs_rb['eigvals']}, pysisyphus: {dft_freqs['eigvals']}"
@@ -199,6 +209,7 @@ def compare_hessians(
             print(
                 f"ReactBench: {dft_freqs_rb['natoms']}, pysisyphus: {dft_freqs['natoms']}"
             )
+            raise ValueError("DFT frequency analysis mismatch")
 
         # Extract reaction index from geometry filename
         rxn_ind = geo.split("/")[-1].split("_")[0]  # rxn9
@@ -219,10 +230,11 @@ def compare_hessians(
                 "pred_neg_eigvals": pred_freqs["neg_eigvals"],
             }
         )
+        print(f"{rxn_ind}: dft={dft_freqs['neg_num']} grad={grad_freqs['neg_num']} pred={pred_freqs['neg_num']}")
 
     # Create DataFrame from collected data
     df_results = pd.DataFrame(data_rows)
-
+    
     # add new columns to the dataframe
     # is transition state (index-1 saddle): nneg where == 1
     df_results["dft_is_ts"] = df_results["dft_nneg"] == 1
@@ -319,25 +331,20 @@ def analyze_frequencies_pysisyphus(h5_hessian_path, ev_thresh=-1e-6):
     rxn_ind = h5_hessian_path.split("/")[-1].split("_")[0]  # rxn9
     geom: Geometry = geom_from_hessian(h5_hessian_path)
     # geom.set_calculator(calc_getter())
-    print("... started Hessian calculation")
     hessian = geom.cart_hessian
-    print("... mass-weighing cartesian hessian")
     mw_hessian = geom.mass_weigh_hessian(hessian)
-    print("... doing Eckart-projection")
     proj_hessian = geom.eckart_projection(mw_hessian)
     eigvals, _ = np.linalg.eigh(proj_hessian)
-
+    # frequency analysis
     neg_inds = eigvals < ev_thresh
     neg_eigvals = eigvals[neg_inds]
     neg_num = sum(neg_inds)
-    eigval_str = np.array2string(eigvals[:10], precision=4)
-    print()
-    print("First 10 eigenvalues", eigval_str)
+    # eigval_str = np.array2string(eigvals[:10], precision=4)
+    # print("First 10 eigenvalues", eigval_str)
     if neg_num > 0:
         wavenumbers = eigval_to_wavenumber(neg_eigvals)
-        wavenum_str = np.array2string(wavenumbers, precision=2)
-        print("Imaginary frequencies:", wavenum_str, "cm⁻¹")
-        print("neg_num:", neg_num)
+        # wavenum_str = np.array2string(wavenumbers, precision=2)
+        # print("Imaginary frequencies:", wavenum_str, "cm⁻¹")
     return {
         "eigvals": eigvals,
         "wavenumbers": wavenumbers,

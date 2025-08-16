@@ -1,5 +1,6 @@
 import numpy as np
 import scipy.constants as spc
+import h5py
 
 from ReactBench.utils.masses import MASS_DICT
 
@@ -135,10 +136,17 @@ def unweight_mw_hessian(mw_hessian, masses3d):
     return mm_sqrt.dot(mw_hessian).dot(mm_sqrt)
 
 
-def eckart_projection(hessian, cart_coords, atomsymbols):
+def eckart_projection_notmw(hessian, cart_coords, atomsymbols):
     masses = np.array([MASS_DICT[atom.lower()] for atom in atomsymbols])
     masses3d = np.repeat(masses, 3)
     mw_hessian = mass_weigh_hessian(hessian, masses3d)
+    P = get_trans_rot_projector(cart_coords, masses=masses, full=False)
+    proj_hessian = P.dot(mw_hessian).dot(P.T)
+    # Projection seems to slightly break symmetry (sometimes?). Resymmetrize.
+    return (proj_hessian + proj_hessian.T) / 2
+
+def eckart_projection_mw(mw_hessian, cart_coords, atomsymbols):
+    masses = np.array([MASS_DICT[atom.lower()] for atom in atomsymbols])
     P = get_trans_rot_projector(cart_coords, masses=masses, full=False)
     proj_hessian = P.dot(mw_hessian).dot(P.T)
     # Projection seems to slightly break symmetry (sometimes?). Resymmetrize.
@@ -155,14 +163,24 @@ def eigval_to_wavenumber(ev):
     w2nu = np.sign(ev) * np.sqrt(np.abs(ev)) * conv
     return w2nu
 
+def load_hessian_h5(h5_path):
+    with h5py.File(h5_path, "r") as handle:
+        atoms = [atom.capitalize() for atom in handle.attrs["atoms"]]
+        coords3d = handle["coords3d"][:]
+        energy = handle.attrs["energy"]
+        cart_hessian = handle["hessian"][:]
+    return cart_hessian, atoms, coords3d, energy
 
 def analyze_frequencies(
-    hessian: np.ndarray,
+    hessian: np.ndarray | str,
     cart_coords: np.ndarray,
     atomsymbols: list,
-    ev_thresh: float = 100,
+    ev_thresh: float = -1e-6,
 ):
-    proj_hessian = eckart_projection(hessian, cart_coords, atomsymbols)
+    if isinstance(hessian, str):
+        hessian, atoms, coords3d, energy = load_hessian_h5(hessian)
+    
+    proj_hessian = eckart_projection_notmw(hessian, cart_coords, atomsymbols)
     eigvals, _ = np.linalg.eigh(proj_hessian)
 
     neg_inds = eigvals < ev_thresh
@@ -174,7 +192,8 @@ def analyze_frequencies(
         # wavenum_str = np.array2string(wavenumbers, precision=2)
     return {
         "eigvals": eigvals,
+        "wavenumbers": wavenumbers,
         "neg_eigvals": neg_eigvals,
         "neg_num": neg_num,
-        "wavenumbers": wavenumbers,
+        "natoms": len(atomsymbols),
     }
