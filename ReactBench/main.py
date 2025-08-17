@@ -140,7 +140,8 @@ def parse_pysis_output(pysistsopt_output_files):
         neg_num_agree=sum(
             1 for x, y in zip(autograd_neg_num, predict_neg_num) if x == y
         ),
-        neg_num_found=len(autograd_neg_num),
+        final_autograd_neg_num_found=len(autograd_neg_num),
+        final_predict_neg_num_found=len(predict_neg_num),
         # initial hessian
         initial_predict_neg_num_one=sum(1 for x in initial_predict_neg_num if x == 1),
         initial_autograd_neg_num_one=sum(1 for x in initial_autograd_neg_num if x == 1),
@@ -150,6 +151,7 @@ def parse_pysis_output(pysistsopt_output_files):
             if x == y
         ),
         initial_neg_num_found=len(initial_autograd_neg_num),
+        initial_predict_neg_num_found=len(initial_predict_neg_num),
         tsopt_outs=tsopt_outs,
     )
 
@@ -595,24 +597,42 @@ def launch_tssearch_processes(args: dict, wandb_run_id=None, wandb_kwargs={}):
         print(f"Number of intended reactions:          {intended_count}")
 
     # Collect the paths for all hessians after the local TS search
-    autograd_hessian_paths = glob(f"{scratch}/*/TSOPT/final_hessian_autograd.h5")
-    predict_hessian_paths = glob(f"{scratch}/*/TSOPT/final_hessian_predict.h5")
+    final_hessian_autograd_paths = glob(f"{scratch}/*/TSOPT/final_hessian_autograd.h5")
+    final_hessian_predict_paths = glob(f"{scratch}/*/TSOPT/final_hessian_predict.h5")
     # ts_final_geometry.xyz
-    geom_paths = glob(f"{scratch}/*/TSOPT/ts_final_geometry.xyz")
+    final_geom_paths = glob(f"{scratch}/*/TSOPT/ts_final_geometry.xyz")
+    # initial hessian
+    initial_hessian_autograd_paths = glob(f"{scratch}/*/TSOPT/initial_hessian_autograd.h5")
+    initial_hessian_predict_paths = glob(f"{scratch}/*/TSOPT/initial_hessian_predict.h5")
+    # initial_geometry.xyz
+    initial_geom_paths = glob(f"{scratch}/*/*TSguess.xyz")
 
     # make a new directory and save the paths
     os.makedirs(f"{scratch}/ts_geoms_hessians", exist_ok=True)
-    for path in autograd_hessian_paths:
+    # final here means after local TS search, but before IRC
+    for path in final_hessian_autograd_paths:
         _rxn_ind = path.split("/")[-3]
-        shutil.copy(path, f"{scratch}/ts_geoms_hessians/{_rxn_ind}_autograd_hessian.h5")
-    for path in predict_hessian_paths:
+        shutil.copy(path, f"{scratch}/ts_geoms_hessians/{_rxn_ind}_final_hessian_autograd.h5")
+    for path in final_hessian_predict_paths:
         _rxn_ind = path.split("/")[-3]
-        shutil.copy(path, f"{scratch}/ts_geoms_hessians/{_rxn_ind}_predict_hessian.h5")
-    for path in geom_paths:
+        shutil.copy(path, f"{scratch}/ts_geoms_hessians/{_rxn_ind}_final_hessian_predict.h5")
+    for path in final_geom_paths:
         _rxn_ind = path.split("/")[-3]
         shutil.copy(
             path, f"{scratch}/ts_geoms_hessians/{_rxn_ind}_ts_final_geometry.xyz"
         )
+    # initial hessians
+    # initial here means before local TS search, but after GSM
+    for path in initial_hessian_autograd_paths:
+        _rxn_ind = path.split("/")[-3]
+        shutil.copy(path, f"{scratch}/ts_geoms_hessians/{_rxn_ind}_initial_hessian_autograd.h5")
+    for path in initial_hessian_predict_paths:
+        _rxn_ind = path.split("/")[-3]
+        shutil.copy(path, f"{scratch}/ts_geoms_hessians/{_rxn_ind}_initial_hessian_predict.h5")
+    # initial geometries
+    for path in initial_geom_paths:
+        _rxn_ind = path.split("/")[-2]
+        shutil.copy(path, f"{scratch}/ts_geoms_hessians/{_rxn_ind}_initial_geometry.xyz")
     # print size of the directory
     size_dir = os.path.getsize(f"{scratch}/ts_geoms_hessians") / 1024 / 1024 / 1024
     print(f"Size of ts_geoms_hessians directory: {size_dir:.2f} GB")
@@ -628,9 +648,9 @@ def launch_tssearch_processes(args: dict, wandb_run_id=None, wandb_kwargs={}):
         "convert_ts": convert_ts,
         "irc_success": irc_success,
         "intended_count": intended_count,
-        "num_autograd_hessians": len(autograd_hessian_paths),
-        "num_predict_hessians": len(predict_hessian_paths),
-        "num_geom_files": len(geom_paths),
+        "num_autograd_hessians": len(final_hessian_autograd_paths),
+        "num_predict_hessians": len(final_hessian_predict_paths),
+        "num_geom_files": len(final_geom_paths),
         "size_ts_geoms_hessians": size_dir,
     }
     pysistsopt_output_files = glob(f"{scratch}/*/TSOPT/pysis_tsopt_output.txt")

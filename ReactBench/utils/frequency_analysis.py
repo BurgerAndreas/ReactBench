@@ -166,19 +166,21 @@ def eigval_to_wavenumber(ev):
 def load_hessian_h5(h5_path):
     with h5py.File(h5_path, "r") as handle:
         atoms = [atom.capitalize() for atom in handle.attrs["atoms"]]
-        coords3d = handle["coords3d"][:]
-        energy = handle.attrs["energy"]
-        cart_hessian = handle["hessian"][:]
+        coords3d = handle["coords3d"][:] # Bohr
+        energy = handle.attrs["energy"] # Hartree
+        cart_hessian = handle["hessian"][:] # Hartree/Bohr^2
     return cart_hessian, atoms, coords3d, energy
 
 def analyze_frequencies(
-    hessian: np.ndarray | str,
-    cart_coords: np.ndarray,
+    hessian: np.ndarray | str, # Hartree/Bohr^2
+    cart_coords: np.ndarray, # Bohr
     atomsymbols: list,
     ev_thresh: float = -1e-6,
 ):
     if isinstance(hessian, str):
         hessian, atoms, coords3d, energy = load_hessian_h5(hessian)
+        assert np.allclose(cart_coords, coords3d), \
+            f"XYZ and Hessian coordinates do not match {np.abs(cart_coords - coords3d).max()}, {np.abs(cart_coords - (coords3d / ANG2BOHR)).max()}"
     
     proj_hessian = eckart_projection_notmw(hessian, cart_coords, atomsymbols)
     eigvals, _ = np.linalg.eigh(proj_hessian)
@@ -190,6 +192,8 @@ def analyze_frequencies(
     if neg_num > 0:
         wavenumbers = eigval_to_wavenumber(neg_eigvals)
         # wavenum_str = np.array2string(wavenumbers, precision=2)
+    else:
+        wavenumbers = None
     return {
         "eigvals": eigvals,
         "wavenumbers": wavenumbers,

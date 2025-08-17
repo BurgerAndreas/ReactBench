@@ -40,8 +40,9 @@ from pysisyphus.io import (
 
 
 def get_geometries_and_hessians(args):
-    autograd_hessians = glob.glob(f"{args.inp_path}/*_autograd_hessian.h5")
-    predicted_hessians = glob.glob(f"{args.inp_path}/*_predict_hessian.h5")
+    # rxn9_final_hessian_autograd.h5
+    autograd_hessians = glob.glob(f"{args.inp_path}/*_{args.which}_hessian_autograd.h5")
+    predicted_hessians = glob.glob(f"{args.inp_path}/*_{args.which}_hessian_predict.h5")
     geometries = glob.glob(f"{args.inp_path}/*ts_final_geometry.xyz")
     assert len(autograd_hessians) == len(predicted_hessians) == len(geometries), (
         f"Number of hessians and geometries do not match: {len(autograd_hessians)}, {len(predicted_hessians)}, {len(geometries)}"
@@ -57,7 +58,7 @@ def run_dft(geometries, outdir, args):
     dft_hessian_paths = []
     for geom_path in tqdm(geometries[:max_samples], desc="DFT Hessian", total=max_samples):
         fname = geom_path.split("/")[-1].split("_")[0]  # rxn9
-        fname = f"{fname}_dft_hessian.h5"
+        fname = f"{fname}_{args.which}_hessian_dft.h5"
         h5_path = os.path.join(outdir, fname)
         if os.path.exists(h5_path):
             dft_hessian_paths.append(h5_path)
@@ -66,6 +67,9 @@ def run_dft(geometries, outdir, args):
         atoms = read_xyz(xyz_path)
         mol = build_molecule(atoms)
         hessian_dft = compute_hessian(mol, xc="wb97x")
+        if hessian_dft is None:
+            dft_hessian_paths.append(None)
+            continue
         # build pysisyphus geometry object
         atom_symbols = [atom[0] for atom in atoms]
         coords = np.array([atom[1] for atom in atoms])
@@ -163,11 +167,12 @@ def xyz_parse(input, multiple=False, return_info=False):
             return molecules
 
 def load_hessian_h5(h5_path):
+    """Loads from pysisyphus. Units are pysis default of Hartree/Bohr^2."""
     with h5py.File(h5_path, "r") as handle:
         atoms = [atom.capitalize() for atom in handle.attrs["atoms"]]
-        coords3d = handle["coords3d"][:]
-        energy = handle.attrs["energy"]
-        cart_hessian = handle["hessian"][:]
+        coords3d = handle["coords3d"][:] # Bohr
+        energy = handle.attrs["energy"] # Hartree
+        cart_hessian = handle["hessian"][:] # Hartree/Bohr^2
     return cart_hessian, atoms, coords3d, energy
 
 def compare_hessians(
@@ -184,14 +189,16 @@ def compare_hessians(
     for geo, hess_pred, hess_grad, hess_dft in zip(
         geometries, predicted_hessians, autograd_hessians, dft_hessians
     ):
+        if hess_dft is None:
+            continue
         # eigenvalues, wavenumbers, negative eigenvalues, number of negative eigenvalues
         # of Eckart-projection of mass-weighted hessian
-        dft_freqs = analyze_frequencies_pysisyphus(hess_dft)
-        grad_freqs = analyze_frequencies_pysisyphus(hess_grad)
-        pred_freqs = analyze_frequencies_pysisyphus(hess_pred)
+        dft_freqs = analyze_frequencies_pysisyphus(hess_dft, xyz_path=geo)
+        grad_freqs = analyze_frequencies_pysisyphus(hess_grad, xyz_path=geo)
+        pred_freqs = analyze_frequencies_pysisyphus(hess_pred, xyz_path=geo)
 
         # as a sanity check, compare to ReactBench's frequency analysis
-        mol = xyz_parse(geo)
+        mol = xyz_parse(geo) * ANG2BOHR
         atomsymbols = mol[0]
         coords = np.array(mol[1])
         dft_freqs_rb = analyze_frequencies(hess_dft, coords, atomsymbols)
@@ -279,6 +286,8 @@ def compare_hessians(
     results = {
         "total_geometries": len(df_results),
         "dft_ts_count": df_results["dft_is_ts"].sum(),
+        "pred_ts_count": df_results["pred_is_ts"].sum(),
+        "grad_ts_count": df_results["grad_is_ts"].sum(),
         "autograd_stats": {
             "tp": grad_tp,
             "fp": grad_fp,
@@ -321,7 +330,7 @@ def plot_comparison(args):
 #     return geom
 
 
-def analyze_frequencies_pysisyphus(h5_hessian_path, ev_thresh=-1e-6):
+def analyze_frequencies_pysisyphus(h5_hessian_path, ev_thresh=-1e-6, xyz_path=None):
     """
     ev_thresh: threshold for negative eigenvalues
 
@@ -330,6 +339,11 @@ def analyze_frequencies_pysisyphus(h5_hessian_path, ev_thresh=-1e-6):
     """
     rxn_ind = h5_hessian_path.split("/")[-1].split("_")[0]  # rxn9
     geom: Geometry = geom_from_hessian(h5_hessian_path)
+    if xyz_path is not None:
+        # compare and make sure they are the same
+        cart_xyz = read_xyz(xyz_path) * ANG2BOHR
+        assert np.allclose(geom.coords3d, cart_xyz), \
+            f"XYZ and Hessian coordinates do not match {np.abs(geom.coords3d - cart_xyz).max()}, {np.abs(geom.coords3d - cart_xyz / ANG2BOHR).max()}"
     # geom.set_calculator(calc_getter())
     hessian = geom.cart_hessian
     mw_hessian = geom.mass_weigh_hessian(hessian)
@@ -345,6 +359,8 @@ def analyze_frequencies_pysisyphus(h5_hessian_path, ev_thresh=-1e-6):
         wavenumbers = eigval_to_wavenumber(neg_eigvals)
         # wavenum_str = np.array2string(wavenumbers, precision=2)
         # print("Imaginary frequencies:", wavenum_str, "cm⁻¹")
+    else:
+        wavenumbers = None
     return {
         "eigvals": eigvals,
         "wavenumbers": wavenumbers,
@@ -356,6 +372,7 @@ def analyze_frequencies_pysisyphus(h5_hessian_path, ev_thresh=-1e-6):
 
 
 def read_xyz(path: str) -> List[Tuple[str, Tuple[float, float, float]]]:
+    """Reads from XYZ file. Units are Angstrom."""
     with open(path, "r") as f:
         lines = [ln.strip() for ln in f if ln.strip()]
     try:
@@ -393,7 +410,7 @@ def build_molecule(
     mol.charge = int(charge)
     mol.spin = int(spin)
     mol.basis = "6-31g(d)"
-    mol.unit = "Angstrom"
+    mol.unit = "Bohr"
     mol.build()
     return mol
 
@@ -411,9 +428,16 @@ def compute_hessian(
     mf.conv_tol = 1e-9
     mf.max_cycle = 200
     mf.verbose = 0  # Suppress SCF convergence messages
-    mf.kernel()
+    try:
+        mf.kernel()
+    except Exception as e:
+        print(">"*40)
+        print(f"Error in SCF: {e}")
+        return None
     if not mf.converged:
-        raise RuntimeError("SCF did not converge; aborting Hessian computation.")
+        print(">"*40)
+        print("SCF did not converge")
+        return None
 
     # Use the generic interface available on the SCF object
     # (N, N, 3, 3) where N is number of atoms
@@ -424,7 +448,8 @@ def compute_hessian(
     N = mol.natm
     hes = hessian.transpose(0, 2, 1, 3).reshape(3 * N, 3 * N)
 
-    # hes shape: (3N, 3N), atomic units (Hartree/Bohr^2)
+    # hes shape: (3N, 3N)
+    # atomic units (Hartree/Bohr^2)
     return hes
 
 
@@ -453,6 +478,12 @@ if __name__ == "__main__":
         type=str,
         default="predict",
         help="Method to use for Hessian. predict or autograd",
+    )
+    parser.add_argument(
+        "--which",
+        type=str,
+        default="final",
+        help="Which hessian to use. final or initial",
     )
     parser.add_argument(
         "--redo",
@@ -505,7 +536,10 @@ if __name__ == "__main__":
     # Print summary statistics
     print("\nComparison Results:")
     print(f"Total geometries analyzed: {results['total_geometries']}")
-    print(f"DFT transition states: {results['dft_ts_count']}")
+    print(f"DFT: is transition state: {results['dft_ts_count']}")
+    print(f"Predicted: is transition state: {results['pred_ts_count']}")
+    print(f"Autograd: is transition state: {results['grad_ts_count']}")
+    
     print("\nAutograd Hessian Performance:")
     print(f"  Accuracy: {results['autograd_stats']['accuracy']:.3f}")
     print(f"  Precision: {results['autograd_stats']['precision']:.3f}")
