@@ -37,6 +37,8 @@ only_cnt_results: false
 cleanup_results: false
 wandb: true
 
+max_samples: None # maximum number of samples to run
+
 # input parameters for GSM
 gsm_restart:   True          # restart GSM jobs from previous calculation or not
 num_nodes:     9             # number of nodes in GSM string

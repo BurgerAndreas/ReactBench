@@ -40,47 +40,77 @@ from pysisyphus.io import (
 
 
 def get_geometries_and_hessians(args):
+    print(f"Getting geometries and hessians from {args.inp_path}")
     # rxn9_final_hessian_autograd.h5
     autograd_hessians = glob.glob(f"{args.inp_path}/*_{args.which}_hessian_autograd.h5")
     predicted_hessians = glob.glob(f"{args.inp_path}/*_{args.which}_hessian_predict.h5")
-    geometries = glob.glob(f"{args.inp_path}/*ts_final_geometry.xyz")
+    geometries = glob.glob(f"{args.inp_path}/*ts_{args.which}_geometry.xyz")
+    # sort by rxn_ind: .../rxn591_ts_final_geometry.xyz
+    autograd_hessians.sort(key=lambda x: int(x.split("/")[-1].split("_")[0][3:]))
+    predicted_hessians.sort(key=lambda x: int(x.split("/")[-1].split("_")[0][3:]))
+    geometries.sort(key=lambda x: int(x.split("/")[-1].split("_")[0][3:]))
+    # only keep the rxn_idx that exist in all three lists
+    grad_idxs = [int(hess.split("/")[-1].split("_")[0][3:]) for hess in autograd_hessians]
+    pred_idxs = [int(hess.split("/")[-1].split("_")[0][3:]) for hess in predicted_hessians]
+    geom_idxs = [int(geom.split("/")[-1].split("_")[0][3:]) for geom in geometries]
+    rxn_idxs = set(grad_idxs).intersection(set(pred_idxs)).intersection(set(geom_idxs))
+    assert len(rxn_idxs) > 0, f"No common rxn_idxs found: {rxn_idxs}"
+    autograd_hessians = [hess for hess in autograd_hessians if int(hess.split("/")[-1].split("_")[0][3:]) in rxn_idxs]
+    predicted_hessians = [hess for hess in predicted_hessians if int(hess.split("/")[-1].split("_")[0][3:]) in rxn_idxs]
+    geometries = [geom for geom in geometries if int(geom.split("/")[-1].split("_")[0][3:]) in rxn_idxs]
+    print(f"Found {len(autograd_hessians)} autograd hessians, {len(predicted_hessians)} predicted hessians, and {len(geometries)} geometries")
     assert len(autograd_hessians) == len(predicted_hessians) == len(geometries), (
-        f"Number of hessians and geometries do not match: {len(autograd_hessians)}, {len(predicted_hessians)}, {len(geometries)}"
+        f"Number of hessians and geometries do not match: grad={len(autograd_hessians)}, pred={len(predicted_hessians)}, geom={len(geometries)}"
     )
     return geometries, predicted_hessians, autograd_hessians
 
 
 # pysisyphus
-def run_dft(geometries, outdir, args):
+def launch_dft_and_save_hessians(geometries, outdir, args):
     max_samples = args.max_samples
     if max_samples is None:
         max_samples = len(geometries)
+    print(f"\nLaunching {max_samples} DFT calculations")
     dft_hessian_paths = []
     for geom_path in tqdm(geometries[:max_samples], desc="DFT Hessian", total=max_samples):
-        fname = geom_path.split("/")[-1].split("_")[0]  # rxn9
-        fname = f"{fname}_{args.which}_hessian_dft.h5"
+        rxnname = geom_path.split("/")[-1].split("_")[0]  # rxn9
+        fname = f"{rxnname}_{args.which}_hessian_dft.h5"
         h5_path = os.path.join(outdir, fname)
-        if os.path.exists(h5_path):
+        txt_path = h5_path.replace(".h5", ".txt")
+        # Check if DFT Hessian already exists and we don't want to redo the calculation
+        if os.path.exists(h5_path) and not args.redo:
             dft_hessian_paths.append(h5_path)
             continue
-        xyz_path = os.path.abspath(geom_path)
-        atoms = read_xyz(xyz_path)
-        mol = build_molecule(atoms)
-        hessian_dft = compute_hessian(mol, xc="wb97x")
-        if hessian_dft is None:
+        # Check if DFT Hessian previously failed and we want to retry the calculation
+        elif os.path.exists(txt_path) and not args.retry_dft:
             dft_hessian_paths.append(None)
             continue
-        # build pysisyphus geometry object
+        # Otherwise, we need to compute the DFT Hessian
+        xyz_path = os.path.abspath(geom_path) 
+        atoms = read_xyz(xyz_path) # Angstrom
+        # convert Angstrom to Bohr
+        atoms = [(sym, (x * ANG2BOHR, y * ANG2BOHR, z * ANG2BOHR)) for sym, (x, y, z) in atoms]
+        mol = build_molecule(atoms)
+        hessian_dft = compute_hessian(mol, xc="wb97x", debug_hint=rxnname)
+        # Handle case where DFT Hessian failed
+        if hessian_dft is None:
+            dft_hessian_paths.append(None)
+            # save a dummy .txt file
+            with open(txt_path, "w") as f:
+                f.write("DFT Hessian failed")
+            continue
+        # To save the Hessian, we need to build a pysisyphus geometry object
         atom_symbols = [atom[0] for atom in atoms]
         coords = np.array([atom[1] for atom in atoms])
         geom = Geometry(
-            atoms=atom_symbols, coords=coords.flatten() * ANG2BOHR, coord_type="redund"
+            atoms=atom_symbols, coords=coords.flatten(), 
+            coord_type="redund"
         )
         geom.cart_hessian = hessian_dft
         geom.energy = 0.0
         save_h5_hessian(h5_path, geom)
         # Copy geometry file for future reference
-        geom_fname = f"{fname.split('_')[0]}_geometry.xyz"
+        geom_fname = f"{fname.split('_')[0]}_{args.which}_geometry.xyz"
         geom_copy_path = os.path.join(outdir, geom_fname)
         shutil.copy2(xyz_path, geom_copy_path)
     return dft_hessian_paths
@@ -90,7 +120,8 @@ def run_dft(geometries, outdir, args):
 def xyz_parse(input, multiple=False, return_info=False):
     """
     Simple wrapper function for grabbing the coordinates and
-    elements from an xyz file
+    elements from an xyz file.
+    Units are Angstrom (same as xyz files).
 
     Inputs      input: string holding the filename of the xyz
     Returns     (List of) Elements: list of element types (list of strings)
@@ -186,24 +217,35 @@ def compare_hessians(
     #     f"Number of hessians and geometries do not match: {len(geometries)}, {len(predicted_hessians)}, {len(autograd_hessians)}, {len(dft_hessians)}"
     # )
 
-    for geo, hess_pred, hess_grad, hess_dft in zip(
+    print("\nComparing number of imaginary frequencies between Hessian methods:")
+    for i, (geo, hess_pred, hess_grad, hess_dft) in enumerate(zip(
         geometries, predicted_hessians, autograd_hessians, dft_hessians
-    ):
+    )):
+        # Extract reaction index from geometry filename
+        rxn_ind = geo.split("/")[-1].split("_")[0]  # rxn9
         if hess_dft is None:
+            print(f"DFT Hessian is None for {i}: {rxn_ind}. Skipping...")
             continue
+        rxn_ind_pred = hess_pred.split("/")[-1].split("_")[0]
+        rxn_ind_grad = hess_grad.split("/")[-1].split("_")[0]
+        rxn_ind_dft = hess_dft.split("/")[-1].split("_")[0]
+        assert rxn_ind == rxn_ind_pred, f"Reaction index mismatch at {i}: {rxn_ind} != {rxn_ind_pred}"
+        assert rxn_ind == rxn_ind_grad, f"Reaction index mismatch at {i}: {rxn_ind} != {rxn_ind_grad}"
+        assert rxn_ind == rxn_ind_dft, f"Reaction index mismatch at {i}: {rxn_ind} != {rxn_ind_dft}"
+        
         # eigenvalues, wavenumbers, negative eigenvalues, number of negative eigenvalues
         # of Eckart-projection of mass-weighted hessian
-        dft_freqs = analyze_frequencies_pysisyphus(hess_dft, xyz_path=geo)
-        grad_freqs = analyze_frequencies_pysisyphus(hess_grad, xyz_path=geo)
-        pred_freqs = analyze_frequencies_pysisyphus(hess_pred, xyz_path=geo)
+        dft_freqs = analyze_frequencies_pysisyphus(hess_dft, xyz_path=geo, debug_hint=f"DFT {rxn_ind}")
+        grad_freqs = analyze_frequencies_pysisyphus(hess_grad, xyz_path=geo, debug_hint=f"Autograd {rxn_ind}")
+        pred_freqs = analyze_frequencies_pysisyphus(hess_pred, xyz_path=geo, debug_hint=f"Predicted {rxn_ind}")
 
         # as a sanity check, compare to ReactBench's frequency analysis
-        mol = xyz_parse(geo) * ANG2BOHR
+        mol = xyz_parse(geo) 
         atomsymbols = mol[0]
-        coords = np.array(mol[1])
+        coords = np.array(mol[1]) * ANG2BOHR
         dft_freqs_rb = analyze_frequencies(hess_dft, coords, atomsymbols)
         if dft_freqs["neg_num"] != dft_freqs_rb["neg_num"]:
-            print(f"DFT frequency analysis mismatch for {geo}")
+            print(f"DFT frequency analysis mismatch for {rxn_ind}")
             print(
                 f"ReactBench: {dft_freqs_rb['neg_num']}, pysisyphus: {dft_freqs['neg_num']}"
             )
@@ -217,9 +259,6 @@ def compare_hessians(
                 f"ReactBench: {dft_freqs_rb['natoms']}, pysisyphus: {dft_freqs['natoms']}"
             )
             raise ValueError("DFT frequency analysis mismatch")
-
-        # Extract reaction index from geometry filename
-        rxn_ind = geo.split("/")[-1].split("_")[0]  # rxn9
 
         # add nneg, natoms, rxn_ind to the dataframe
         data_rows.append(
@@ -241,6 +280,10 @@ def compare_hessians(
 
     # Create DataFrame from collected data
     df_results = pd.DataFrame(data_rows)
+    
+    # Check if we have any valid data
+    if df_results.empty:
+        raise ValueError("Warning: No valid DFT hessian data found. All DFT calculations may have failed.")
     
     # add new columns to the dataframe
     # is transition state (index-1 saddle): nneg where == 1
@@ -330,7 +373,7 @@ def plot_comparison(args):
 #     return geom
 
 
-def analyze_frequencies_pysisyphus(h5_hessian_path, ev_thresh=-1e-6, xyz_path=None):
+def analyze_frequencies_pysisyphus(h5_hessian_path, ev_thresh=-1e-6, xyz_path=None, debug_hint=""):
     """
     ev_thresh: threshold for negative eigenvalues
 
@@ -338,12 +381,27 @@ def analyze_frequencies_pysisyphus(h5_hessian_path, ev_thresh=-1e-6, xyz_path=No
     pysisyphus/pysisyphus/helpers.py
     """
     rxn_ind = h5_hessian_path.split("/")[-1].split("_")[0]  # rxn9
-    geom: Geometry = geom_from_hessian(h5_hessian_path)
+    geom: Geometry = geom_from_hessian(h5_hessian_path) # Bohr and Hartree/Bohr^2
     if xyz_path is not None:
-        # compare and make sure they are the same
-        cart_xyz = read_xyz(xyz_path) * ANG2BOHR
-        assert np.allclose(geom.coords3d, cart_xyz), \
-            f"XYZ and Hessian coordinates do not match {np.abs(geom.coords3d - cart_xyz).max()}, {np.abs(geom.coords3d - cart_xyz / ANG2BOHR).max()}"
+        # compare geometry and Hessian coordinates and make sure they are the same
+        atomsymbols, cart_xyz = xyz_parse(xyz_path)
+        cart_xyz = np.asarray(cart_xyz) * ANG2BOHR
+        if cart_xyz.shape != geom.coords3d.shape:
+            print(f"{debug_hint}: XYZ and Hessian coordinates shapes do not match: {cart_xyz.shape} != {geom.coords3d.shape}")
+        elif not np.allclose(geom.coords3d, cart_xyz):
+            print(
+                f"{debug_hint}: XYZ and Hessian coordinates do not match.",
+                f"max diff: {np.abs(geom.coords3d - cart_xyz).max():.1e}",
+                f"max diff (Bohr): {np.abs(geom.coords3d - cart_xyz / ANG2BOHR).max():.1e}"
+            )
+        else:
+            print(f" {debug_hint}: XYZ and Hessian coordinates match {np.abs(geom.coords3d - cart_xyz).max():.1e}.")
+        # check the atomsymbols
+        if not np.all(np.array(atomsymbols) == np.array(geom.atoms)):
+            print(f"{debug_hint}: XYZ and Hessian atomsymbols do not match: {atomsymbols} != {geom.atoms}")
+        else:
+            pass
+            # print(f" {debug_hint}: XYZ and Hessian atomsymbols match.") # sanity check
     # geom.set_calculator(calc_getter())
     hessian = geom.cart_hessian
     mw_hessian = geom.mass_weigh_hessian(hessian)
@@ -372,7 +430,9 @@ def analyze_frequencies_pysisyphus(h5_hessian_path, ev_thresh=-1e-6, xyz_path=No
 
 
 def read_xyz(path: str) -> List[Tuple[str, Tuple[float, float, float]]]:
-    """Reads from XYZ file. Units are Angstrom."""
+    """Reads from XYZ file. Units are Angstrom.
+    Returns a list of tuples (symbol, (x,y,z)).
+    """
     with open(path, "r") as f:
         lines = [ln.strip() for ln in f if ln.strip()]
     try:
@@ -404,6 +464,10 @@ def build_molecule(
     charge: int = 0,
     multiplicity: int = 1,
 ) -> gto.Mole:
+    """
+    Build a PySCF molecule from a list of atoms [(symbol, (x,y,z)), (symbol, (x,y,z)), ...].
+    Expects Bohr coordinates!
+    """
     spin = multiplicity - 1  # 2S = multiplicity - 1
     mol = gto.Mole()
     mol.atom = atoms  # list[(symbol, (x,y,z))]
@@ -416,7 +480,7 @@ def build_molecule(
 
 
 def compute_hessian(
-    mol: gto.Mole, multiplicity: int = 1, xc: str = "wb97x"
+    mol: gto.Mole, multiplicity: int = 1, xc: str = "wb97x", debug_hint=""
 ) -> np.ndarray:
     is_open_shell = multiplicity != 1
     if is_open_shell:
@@ -431,12 +495,14 @@ def compute_hessian(
     try:
         mf.kernel()
     except Exception as e:
-        print(">"*40)
-        print(f"Error in SCF: {e}")
+        print("\n" + ">"*40)
+        print(f"Error in SCF: {debug_hint}: \n{e}")
+        print("<"*40)
         return None
     if not mf.converged:
-        print(">"*40)
-        print("SCF did not converge")
+        print("\n" + ">"*40)
+        print(f"SCF did not converge: {debug_hint}")
+        print("<"*40)
         return None
 
     # Use the generic interface available on the SCF object
@@ -456,7 +522,9 @@ def compute_hessian(
 def dft_hessian_from_xyz(xyz_path: str) -> None:
     "Compute DFT Hessian at ωB97X/6-31G(d) from an XYZ geometry using PySCF."
     xyz_path = os.path.abspath(xyz_path)
-    atoms = read_xyz(xyz_path)
+    atoms = read_xyz(xyz_path) # Angstrom
+    # convert Angstrom to Bohr
+    atoms = [(sym, (x * ANG2BOHR, y * ANG2BOHR, z * ANG2BOHR)) for sym, (x, y, z) in atoms]
     mol = build_molecule(atoms)
     hessian_dft = compute_hessian(mol, xc="wb97x")
     return hessian_dft
@@ -490,6 +558,12 @@ if __name__ == "__main__":
         type=bool,
         default=False,
         help="Redo the DFT Hessian computation. If false attempt to load existing results.",
+    )
+    parser.add_argument(
+        "--retry_dft",
+        type=bool,
+        default=False,
+        help="Retry the DFT Hessian computation if it previously failed. If true, overwrite existing results.",
     )
     parser.add_argument(
         "--max_samples",
@@ -527,7 +601,22 @@ if __name__ == "__main__":
     paths = get_geometries_and_hessians(args)
     geometries, predicted_hessians, autograd_hessians = paths
 
-    dft_hessians = run_dft(geometries, outdir, args)
+    dft_hessians = launch_dft_and_save_hessians(geometries, outdir, args)
+
+    print()
+    print(f"Number of geometries: {len(geometries)}")
+    print(f"Number of predicted hessians: {len(predicted_hessians)}")
+    print(f"Number of autograd hessians: {len(autograd_hessians)}")
+    print(f"Number of DFT hessians: {len(dft_hessians)}")
+
+    # check that the reaction indices match
+    rxn_ind_geo = [geo.split("/")[-1].split("_")[0] for geo in geometries]
+    rxn_ind_pred = [hess.split("/")[-1].split("_")[0] for hess in predicted_hessians]
+    rxn_ind_grad = [hess.split("/")[-1].split("_")[0] for hess in autograd_hessians]
+    assert np.all(rxn_ind_geo == rxn_ind_pred), f"Reaction index mismatch: {rxn_ind_geo} != {rxn_ind_pred}"
+    assert np.all(rxn_ind_geo == rxn_ind_grad), f"Reaction index mismatch: {rxn_ind_geo} != {rxn_ind_grad}"
+    # rxn_ind_dft = [hess.split("/")[-1].split("_")[0] for hess in dft_hessians]
+    # assert all(rxn_ind_geo == rxn_ind_dft), f"Reaction index mismatch: {rxn_ind_geo} != {rxn_ind_dft}"
 
     df_results, results = compare_hessians(
         geometries, predicted_hessians, autograd_hessians, dft_hessians, args

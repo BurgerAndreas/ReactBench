@@ -444,6 +444,13 @@ def launch_tssearch_processes(args: dict, wandb_run_id=None, wandb_kwargs={}):
             for rxn in sorted(os.listdir(f"{scratch}/init_rxns"))
             if rxn[-4:] == ".xyz"
         ]
+        # Limit number of reactions if max_samples is specified
+        if args.get("max_samples") is not None:
+            original_count = len(rxns_confs)
+            rxns_confs = rxns_confs[:args["max_samples"]]
+            if len(rxns_confs) < original_count:
+                print(f"Limited reactions from {original_count} to {len(rxns_confs)} due to max_samples setting")
+                logger.info(f"Limited reactions from {original_count} to {len(rxns_confs)} due to max_samples setting")
         thread = min(nprocs, len(rxns_confs))
         input_job_list = []
 
@@ -489,7 +496,7 @@ def launch_tssearch_processes(args: dict, wandb_run_id=None, wandb_kwargs={}):
             tsopt_jobs[job[0]] = job[1]
             irc_jobs.append(job[2])
 
-        # reporting GSM wall-time
+        # reporting GSM+RSPRFO+IRC wall-time
         end = time.time()
         print(f"Total running time: {end - start:.1f}s")
         logger.info(f"Total running time: {end - start:.1f}s\n")
@@ -606,6 +613,7 @@ def launch_tssearch_processes(args: dict, wandb_run_id=None, wandb_kwargs={}):
     initial_hessian_predict_paths = glob(f"{scratch}/*/TSOPT/initial_hessian_predict.h5")
     # initial_geometry.xyz
     initial_geom_paths = glob(f"{scratch}/*/*TSguess.xyz")
+    assert len(initial_geom_paths) > 0, "No initial geometries found"
 
     # make a new directory and save the paths
     os.makedirs(f"{scratch}/ts_geoms_hessians", exist_ok=True)

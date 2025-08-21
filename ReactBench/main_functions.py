@@ -115,19 +115,22 @@ def analyze_outputs(
             print(f"{rxn_ind} is a conformation change, skip this TS...")
             continue
 
-        # compute bond matrix if is required, then obtain smiles
-        if use_BE:
-            bond_mats_1, _ = find_lewis(E, adjmat_1, charge)
-            bond_mats_2, _ = find_lewis(E, adjmat_2, charge)
-            smiles = [
-                return_smi(E, G1, bond_mats_1[0], namespace=f"{rxn_ind}-1"),
-                return_smi(E, G2, bond_mats_2[0], namespace=f"{rxn_ind}-2"),
-            ]
+        if return_smi is None:
+            smiles = None
         else:
-            smiles = [
-                return_smi(E, G1, namespace=f"{rxn_ind}-1"),
-                return_smi(E, G2, namespace=f"{rxn_ind}-2"),
-            ]
+            # compute bond matrix if is required, then obtain smiles
+            if use_BE:
+                bond_mats_1, _ = find_lewis(E, adjmat_1, charge)
+                bond_mats_2, _ = find_lewis(E, adjmat_2, charge)
+                smiles = [
+                    return_smi(E, G1, bond_mats_1[0], namespace=f"{rxn_ind}-1"),
+                    return_smi(E, G2, bond_mats_2[0], namespace=f"{rxn_ind}-2"),
+                ]
+            else:
+                smiles = [
+                    return_smi(E, G1, namespace=f"{rxn_ind}-1"),
+                    return_smi(E, G2, namespace=f"{rxn_ind}-2"),
+                ]
 
         # compare adj_mats
         adj_diff_1r = np.abs(adjmat_1 - R_adjmat)
@@ -174,7 +177,11 @@ def analyze_outputs(
             node_map = {"R": 1, "P": 2}
 
         # analyze outputs
-        if rtype == "Intended":
+        if smiles is None:
+            rsmiles = None
+            psmiles = None
+            barrier = None
+        elif rtype == "Intended":
             rsmiles = smiles[node_map["R"] - 1]
             psmiles = smiles[node_map["P"] - 1]
             barrier = barriers[node_map["R"] - 1]
@@ -219,7 +226,7 @@ def analyze_outputs(
                 continue
 
         # in case IRC calculation is wrong, print out warning information and ignore this rxn
-        if reactions[rxn_ind]["select"] and barrier < 0:
+        if reactions[rxn_ind]["select"] and (barrier is not None) and (barrier < 0):
             print(
                 f"Reaction {irc_job.jobname} has a barrier less than 0, which indicates the end node optimization of IRC has some trouble, please manually check this reaction"
             )
@@ -230,7 +237,7 @@ def analyze_outputs(
             continue
 
         # if there is a dg_thresh, the barrier needs to be smaller than the threshold plus the soft margin to be selected
-        if dg_thresh is not None and barrier > dg_thresh + uncertainty:
+        if (dg_thresh is not None) and (barrier is not None) and (barrier > dg_thresh + uncertainty):
             print(
                 f"Reaction {irc_job.jobname} has a barrier of {barrier} kcal/mol which is higher than the barrier threshold"
             )
@@ -244,6 +251,10 @@ def analyze_outputs(
     for rxn_ind in sorted(reactions.keys()):
         rxn = reactions[rxn_ind]
         with open(f"{working_folder}/IRC-record.txt", "a") as g:
+            if return_smi is None:
+                msg = f"{rxn_ind:40s} {rxn['reactant']:60s} {rxn['product']:60s} {rxn['rtype']:15s} {str(rxn['barrier']):10s}\n"
+            else:
+                msg = f"{rxn_ind:40s} {None} {None} {rxn['rtype']:15s} {None}\n"
             g.write(
-                f"{rxn_ind:40s} {rxn['reactant']:60s} {rxn['product']:60s} {rxn['rtype']:15s} {str(rxn['barrier']):10s}\n"
+                msg
             )

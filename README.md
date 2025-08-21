@@ -39,41 +39,7 @@ ReactBench/
 
 ## Getting Started
 
-### Installation Guide for Local Machine
-
-```bash
-git clone git@github.com:BurgerAndreas/ReactBench.git
-cd ReactBench
-mamba create -n reactbench python=3.10
-mamba activate reactbench
-mamba install -y -c conda-forge openbabel
-
-# install pysisyphus and pygsm
-mkdir dependencies 
-cd dependencies 
-git clone git@github.com:BurgerAndreas/pysisyphus.git 
-cd pysisyphus 
-git checkout reactbench 
-pip install -e .
-cd ..
-
-git clone git@github.com:BurgerAndreas/pyGSM.git 
-cd pyGSM
-pip install -e .
-cd ../..
-
-cd ReactBench/MLIP/leftnet/ # install leftnet env
-pip install -e .
-cd ../../..
-
-cd ReactBench/MLIP/mace/ # install mace env
-pip install -e .
-cd ../../..
-
-pip install -r environment.txt
-```
-
-### Installation Guide for SLURM Cluster
+### Installation Guide
 
 Install uv
 ```bash
@@ -86,6 +52,7 @@ cd ReactBench
 uv venv venv --python 3.11
 source venv/bin/activate
 
+# if you are on a slurm cluster
 module load cuda/12.6
 module load gcc/12.3
 module load rdkit/2023.09.5 openmm/8.2.0 openbabel/3.1.1 mctc-lib/0.3.1
@@ -117,17 +84,8 @@ uv pip install -e .
 cd ../ReactBench
 
 uv pip install -r environment.txt
-# uv pip install torch-cluster --no-build-isolation
 ```
 
-I had problems with the compute canada version of wandb, so I installed it manually
-```bash
-uv pip uninstall wandb -y
-
-wget https://files.pythonhosted.org/packages/88/c9/41b8bdb493e5eda32b502bc1cc49d539335a92cacaf0ef304d7dae0240aa/wandb-0.20.1-py3-none-manylinux_2_17_x86_64.manylinux2014_x86_64.whl -O wandb-0.20.1-py3-none-any.whl
-
-PIP_CONFIG_FILE=/dev/null uv pip install wandb-0.20.1-py3-none-any.whl --force-reinstall --no-deps --no-build-isolation --no-cache-dir --no-index
-```
 
 Create a .env file in the root directory and set these variables (adjust as needed):
 ```bash
@@ -172,7 +130,6 @@ wget https://huggingface.co/yhong55/HORM/resolve/main/eqv2_orig.ckpt -O ckpt/hor
 wget https://huggingface.co/yhong55/HORM/resolve/main/left-df_orig.ckpt -O ckpt/horm/left-df_orig.ckpt
 wget https://huggingface.co/yhong55/HORM/resolve/main/left_orig.ckpt -O ckpt/horm/left_orig.ckpt
 wget https://huggingface.co/yhong55/HORM/resolve/main/alpha_orig.ckpt -O ckpt/horm/alpha_orig.ckpt
-
 ```
 
 Download Transition1x validation subset recomputed, 960 datapoints
@@ -246,13 +203,7 @@ uv pip install --upgrade pip
 uv pip install pyscf
 uv pip install gpu4pyscf-cuda12x cutensor-cu12
 
-# Run the Hessian computation on the provided example
-uv run compute_hessian_dft.py data/hessiantest/ts_test.xyz --out resultsdft/test/ts_test_hessian.npy --txt resultsdft/test/ts_test_hessian.txt
 ```
-
-Outputs:
-- `data/ts_test_hessian.npy`: Hessian matrix in atomic units (Hartree/Bohr^2)
-- `data/ts_test_hessian.txt`: Optional text dump
 
 
 ### Citation
