@@ -178,9 +178,12 @@ def analyze_frequencies(
     ev_thresh: float = -1e-6,
 ):
     if isinstance(hessian, str):
-        hessian, atoms, coords3d, energy = load_hessian_h5(hessian)
+        _file = hessian
+        hessian, atoms, coords3d, energy = load_hessian_h5(hessian) # Bohr and Hartree/Bohr^2
+        # geom: Geometry = geom_from_hessian(hessian) # Bohr and Hartree/Bohr^2
+        # assert np.allclose(geom.coords3d, cart_coords)
         assert np.allclose(cart_coords, coords3d), \
-            f"XYZ and Hessian coordinates do not match {np.abs(cart_coords - coords3d).max()}, {np.abs(cart_coords - (coords3d / ANG2BOHR)).max()}"
+            f"XYZ and Hessian coordinates do not match\n {np.abs(cart_coords - coords3d).max():.1e}\n {np.abs(cart_coords - (coords3d / ANG2BOHR)).max():.1e}\n {_file}"
     
     proj_hessian = eckart_projection_notmw(hessian, cart_coords, atomsymbols)
     eigvals, _ = np.linalg.eigh(proj_hessian)

@@ -627,7 +627,7 @@ def launch_tssearch_processes(args: dict, wandb_run_id=None, wandb_kwargs={}):
     for path in final_geom_paths:
         _rxn_ind = path.split("/")[-3]
         shutil.copy(
-            path, f"{scratch}/ts_geoms_hessians/{_rxn_ind}_ts_final_geometry.xyz"
+            path, f"{scratch}/ts_geoms_hessians/{_rxn_ind}_final_geometry.xyz"
         )
     # initial hessians
     # initial here means before local TS search, but after GSM
