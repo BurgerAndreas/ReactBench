@@ -624,7 +624,7 @@ if __name__ == "__main__":
     runname = args.inp_path.split("/")[-2]
     print(f"Running comparison for {runname}")
 
-    outdir = f"dftruns/{runname}"
+    outdir = f"runs_dft/{runname}"
     os.makedirs(outdir, exist_ok=True)
 
     # torch.manual_seed(42)
@@ -685,7 +685,7 @@ if __name__ == "__main__":
     )
 
     # Save results to CSV
-    results_path = f"{outdir}/hessian_comparison_results.csv"
+    results_path = f"{outdir}/results_{args.which}.csv"
     df_results.to_csv(results_path, index=False)
     print(f"\nDetailed results saved to: {results_path}")
     plot_comparison(args)

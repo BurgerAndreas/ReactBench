@@ -931,15 +931,15 @@ def run_gsm_rsprfo_irc(
         exe=args["pysis_exe"],
         calc_kwargs=calc_kwargs,
     )
-    if os.path.isfile(f"{tsopt_job.work_folder}/ts_final_hessian.h5"):
+    if os.path.isfile(f"{tsopt_job.work_folder}/final_hessian.h5"):
         irc_job.generate_input(
             calctype=f"mlff-{args['calc']}",
-            hess_init=f"{tsopt_job.work_folder}/ts_final_hessian.h5",
+            hess_init=f"{tsopt_job.work_folder}/final_hessian.h5",
             calc_kwargs=calc_kwargs,
         )
     else:
         print(
-            f"IRC did not find ts_final_hessian for {tsopt_job.jobname} {tsopt_job.jobtype}"
+            f"IRC did not find final_hessian for {tsopt_job.jobname} {tsopt_job.jobtype}"
         )
         irc_job.generate_input(
             calctype=f"mlff-{args['calc']}",

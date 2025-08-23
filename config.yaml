@@ -17,9 +17,11 @@ multiplicity:  1     # system multiplicity (spin + 1)
 # Available calculator options:
 # - leftnet: LeftNet model with autograd (fine-tuned)
 # - leftnet-d: LeftNet model with direct forces (fine-tuned)
-calc:          mace-pretrain   # select from the available MLFF calculators, like: 
+# - mace-pretrain: MACE model with pretraining (fine-tuned)
+# - mace-finetuned
+calc:          equiformer
 ckpt_path: null
-config_path: auto
+config_path: auto # auto: config loaded from ckpt_path
 hessian_method: "autograd"
 
 # when to consider a TS as true TS and do IRC
@@ -37,7 +39,7 @@ only_cnt_results: false
 cleanup_results: false
 wandb: true
 
-max_samples: None # maximum number of samples to run
+max_samples: null # maximum number of samples to run
 
 # input parameters for GSM
 gsm_restart:   True          # restart GSM jobs from previous calculation or not
