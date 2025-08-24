@@ -3,7 +3,7 @@ __pycache__/
 *.ckpt
 test*/
 dependencies/
-dftruns/
+
 
 *.h5
 *.xyz
@@ -25,6 +25,9 @@ outslurm/
 scratch/
 runs/
 outputs/
+dftruns/
+runs_*/
+results/
 
 **/_version.py
 _version.py

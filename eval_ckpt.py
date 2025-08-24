@@ -5,9 +5,9 @@ import yaml
 from omegaconf import DictConfig
 import os
 import torch
+from ReactBench.main import launch_tssearch_processes
 from gadff.logging_utils import name_from_config, find_latest_checkpoint
 from gadff.horm.eval_horm import evaluate
-from ReactBench.main import launch_tssearch_processes
 
 
 def get_ckpt_name(cfg: DictConfig):

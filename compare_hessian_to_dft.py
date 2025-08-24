@@ -221,7 +221,8 @@ def compare_hessians(
 ):
     # Initialize empty list to collect data
     data_rows = []
-    fail_counters = 0
+    cnt_fail_freq_analysis = 0
+    cnt_fail_autograd_predict_hessian_same = 0
     assert len(dft_hessians) > 0, "No dft_hessians found"
     # assert len(geometries) == len(predicted_hessians) == len(autograd_hessians) == len(dft_hessians), (
     #     f"Number of hessians and geometries do not match: {len(geometries)}, {len(predicted_hessians)}, {len(autograd_hessians)}, {len(dft_hessians)}"
@@ -256,14 +257,15 @@ def compare_hessians(
             dft_freqs_rb = analyze_frequencies(hess_dft, cart_xyz, atomsymbols)
         except Exception as e:
             print(f"Error in ReactBench frequency analysis for {rxn_ind}: {e}")
-            fail_counters += 1
+            cnt_fail_freq_analysis += 1
             continue
 
         # check that predicted hessian and the autograd hessian are different
         hess_pred_array = load_hessian_h5(hess_pred)[0]
         hess_grad_array = load_hessian_h5(hess_grad)[0]
         if np.allclose(hess_pred_array, hess_grad_array):
-            print(f"Predicted and Autograd Hessians are the same for {rxn_ind}")
+            print(f"Error: Predicted and Autograd Hessians are the same for {rxn_ind}. Check how the Hessians were saved. Skipping...")
+            cnt_fail_autograd_predict_hessian_same += 1
             continue
 
         if dft_freqs["neg_num"] != dft_freqs_rb["neg_num"]:
@@ -300,8 +302,9 @@ def compare_hessians(
         )
         print(f"{rxn_ind}: dft={dft_freqs['neg_num']} grad={grad_freqs['neg_num']} pred={pred_freqs['neg_num']}")
 
-    print("\nDone with frequency analysis.")
-    print(f"Number of failed frequency analyses: {fail_counters}")
+    print("\nDone comparing Hessians with frequency analysis.")
+    print(f"Number of failed frequency analyses: {cnt_fail_freq_analysis}")
+    print(f"Number of failed cases where predicted and autograd hessians are the same: {cnt_fail_autograd_predict_hessian_same}")
 
     # Create DataFrame from collected data
     df_results = pd.DataFrame(data_rows)
@@ -414,17 +417,21 @@ def analyze_frequencies_pysisyphus(h5_hessian_path, ev_thresh=-1e-6, xyz_path=No
         if cart_xyz.shape != geom.coords3d.shape:
             print(f"{debug_hint}: XYZ and Hessian coordinates shapes do not match: {cart_xyz.shape} != {geom.coords3d.shape}")
         elif not np.allclose(geom.coords3d, cart_xyz):
-            print(
-                "!"*100, "\n",
-                f"{debug_hint}: XYZ and Hessian coordinates do not match.",
+            msg = (
+                "!"*100,
+                f"Error: {debug_hint}: XYZ and Hessian coordinates do not match.",
                 f"max diff: {np.abs(geom.coords3d - cart_xyz).max():.1e}",
                 f"max diff (Bohr): {np.abs(geom.coords3d - cart_xyz / ANG2BOHR).max():.1e}"
             )
+            # print("\n".join(msg))
+            raise ValueError("\n".join(msg))
         else:
-            print(f" {debug_hint}: XYZ and Hessian coordinates match {np.abs(geom.coords3d - cart_xyz).max():.1e}.")
+            # print(f" {debug_hint}: XYZ and Hessian coordinates match {np.abs(geom.coords3d - cart_xyz).max():.1e}. All good.")
+            pass
         # check the atomsymbols
         if not np.all(np.array(atomsymbols) == np.array(geom.atoms)):
-            print(f"{debug_hint}: XYZ and Hessian atomsymbols do not match: {atomsymbols} != {geom.atoms}")
+            msg = f"Error: {debug_hint}: XYZ and Hessian atomsymbols do not match: {atomsymbols} != {geom.atoms}"
+            raise ValueError(msg)
         else:
             pass
             # print(f" {debug_hint}: XYZ and Hessian atomsymbols match.") # sanity check
@@ -462,7 +469,7 @@ def read_xyz(path: str) -> List[Tuple[str, Tuple[float, float, float]]]:
     with open(path, "r") as f:
         lines = [ln.strip() for ln in f if ln.strip()]
     try:
-        nat = int(lines[0].split()[0])
+        natoms = int(lines[0].split()[0])
     except Exception as exc:
         raise ValueError(f"Invalid XYZ header in {path}: {exc}") from exc
 
@@ -484,9 +491,9 @@ def read_xyz(path: str) -> List[Tuple[str, Tuple[float, float, float]]]:
         except Exception as exc:
             raise ValueError(f"Invalid coordinates in line: '{ln}'") from exc
         atoms.append((sym, (x, y, z)))
-    if len(atoms) != nat:
+    if len(atoms) != natoms:
         raise ValueError(
-            f"XYZ atom count mismatch: header says {nat}, parsed {len(atoms)} in {path}"
+            f"XYZ atom count mismatch: header says {natoms}, parsed {len(atoms)} in {path}"
         )
     return atoms
 

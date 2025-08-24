@@ -20,3 +20,4 @@ uv run compare_hessian_to_dft.py equiformer_alldatagputwoalphadrop0droppathrate0
 
 cd ../gad-ff
 uv run scripts/second_order_relaxation_pysiyphus.py
+uv run scripts/second_order_relaxation_pysiyphus.py --coord cart

@@ -15,9 +15,13 @@ from ase.calculators.calculator import Calculator
 from ase.data import atomic_numbers
 
 # Try to import Equiformer dependencies
-from ocpmodels.common.relaxation.ase_utils import ase_atoms_to_torch_geometric_hessian
-from nets.equiformer_v2.equiformer_v2_oc20 import EquiformerV2_OC20
-from nets.prediction_utils import compute_extra_props
+try:
+    from ocpmodels.common.relaxation.ase_utils import ase_atoms_to_torch_geometric_hessian
+    from nets.equiformer_v2.equiformer_v2_oc20 import EquiformerV2_OC20
+    from nets.prediction_utils import compute_extra_props
+    equiformer_available = True
+except ImportError:
+    equiformer_available = False
 
 
 class EquiformerCalculator(Calculator):
@@ -42,6 +46,10 @@ class EquiformerCalculator(Calculator):
             config_path: Path to the model config file
             **kwargs: Additional keyword arguments for parent Calculator class
         """
+        if not equiformer_available:
+            raise ImportError(
+                f"Equiformer is not available. Loading imports failed in {__file__}."
+            )
 
         Calculator.__init__(self, **kwargs)
 
