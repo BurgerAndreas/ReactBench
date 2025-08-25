@@ -225,6 +225,7 @@ class EquiformerMLFF:
         """Get energy for pysisyphus interface"""
         molecule.calc = self.model
         energy = molecule.get_potential_energy() / AU2EV
+        assert energy is not None, f"Energy is None for {molecule}"
 
         results = {
             "energy": energy,
@@ -279,33 +280,30 @@ class EquiformerMLFF:
                     energy=energy,
                     forces=forces,  # allow_unused=True
                 )
-                N = batch.pos.shape[0]
-                hessian = hessian.detach().cpu().numpy()
-                hessian = hessian.reshape(N * 3, N * 3)
-                hessian = hessian / AU2EV * BOHR2ANG * BOHR2ANG
             self.model.cnt_hessian_autograd += 1
             self.cnt_hessian_autograd += 1
-            energy = energy.item() / AU2EV
 
         elif hessian_method == "predict":
             with torch.no_grad():
                 energy, forces, out = self.model.potential.forward(
                     batch, eigen=False, hessian=True
                 )
-                hessian = (
-                    out["hessian"].detach().cpu().numpy() / AU2EV * BOHR2ANG * BOHR2ANG
-                )
-                N = batch.pos.shape[0]
-                hessian = hessian.reshape(N * 3, N * 3)
-                energy = energy.item() / AU2EV
+                hessian = out["hessian"]
             self.model.cnt_hessian_predict += 1
             self.cnt_hessian_predict += 1
         else:
             raise ValueError(f"Invalid hessian method: {hessian_method}")
+        
+        N = batch.pos.shape[0]
+        energy = energy.item() / AU2EV
+        forces = forces.detach().cpu().numpy().reshape(-1) / AU2EV * BOHR2ANG
+        hessian = hessian.detach().cpu().numpy()
+        hessian = hessian.reshape(N * 3, N * 3)
+        hessian = hessian / AU2EV * BOHR2ANG * BOHR2ANG
 
         results = {
             "energy": energy,
-            "forces": forces.detach().cpu().numpy().reshape(-1) / AU2EV * BOHR2ANG,
+            "forces": forces,
             "hessian": hessian,
         }
         return results
