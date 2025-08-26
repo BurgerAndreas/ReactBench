@@ -53,10 +53,6 @@ class EquiformerCalculator(Calculator):
 
         Calculator.__init__(self, **kwargs)
 
-        # this is where all the calculated properties are stored
-        self.results = {}
-        self.cnt_hessian_autograd = 0
-        self.cnt_hessian_predict = 0
 
         _args = {
             "ckpt_path": ckpt_path,
@@ -114,6 +110,15 @@ class EquiformerCalculator(Calculator):
 
         # Set implemented properties
         self.implemented_properties = ["energy", "forces", "hessian"]
+
+        self.reset()
+
+    def reset(self):
+        # this is where all the calculated properties are stored
+        self.results = {}
+        self.cnt_hessian_autograd = 0
+        self.cnt_hessian_predict = 0
+        super().reset()
 
     def calculate(
         self, atoms=None, properties=None, system_changes=None, hessian_method=None
@@ -210,8 +215,6 @@ class EquiformerMLFF:
         """
         self.device = device
         self.hessian_method = hessian_method
-        self.cnt_hessian_autograd = 0
-        self.cnt_hessian_predict = 0
 
         self.model = EquiformerCalculator(
             ckpt_path=ckpt_path,
@@ -220,6 +223,12 @@ class EquiformerMLFF:
             hessian_method=hessian_method,
             **kwargs,
         )
+        self.reset()
+    
+    def reset(self):
+        self.cnt_hessian_autograd = 0
+        self.cnt_hessian_predict = 0
+        self.model.reset()
 
     def get_energy(self, molecule):
         """Get energy for pysisyphus interface"""
