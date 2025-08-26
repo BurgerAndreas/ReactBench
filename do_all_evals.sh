@@ -19,5 +19,6 @@ uv run compare_hessian_to_dft.py equiformer_alldatagputwoalphadrop0droppathrate0
 uv run compare_hessian_to_dft.py equiformer_alldatagputwoalphadrop0droppathrate0projdrop0 --which initial --redo True
 
 cd ../gad-ff
-uv run scripts/second_order_relaxation_pysiyphus.py
-uv run scripts/second_order_relaxation_pysiyphus.py --coord cart
+uv run scripts/second_order_relaxation_pysiyphus.py --max_samples 30 --thresh gau --redo True;
+uv run scripts/second_order_relaxation_pysiyphus.py --max_samples 30 --thresh gau_loose --redo True;
+uv run scripts/second_order_relaxation_pysiyphus.py --max_samples 30 --thresh gau_loose --coord cart --redo True;

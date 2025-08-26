@@ -26,7 +26,8 @@ except ImportError:
 
 class EquiformerCalculator(Calculator):
     """
-    Equiformer ASE Calculator for ReactBench
+    Equiformer ASE Calculator for ReactBench.
+    Everything in Angstrom and eV.
     """
 
     def __init__(
@@ -146,36 +147,32 @@ class EquiformerCalculator(Calculator):
         # Prepare batch with extra properties
         batch = compute_extra_props(batch, pos_require_grad=do_autograd)
 
+        # Store results
+        self.results = {}
+
         # Run prediction
+        N = batch.pos.shape[0]
         if do_autograd:
             with torch.enable_grad():
                 energy, forces, _ = self.potential.forward(
                     batch, eigen=False, otf_graph=True
                 )
+                hessian = compute_hessian(batch.pos, energy, forces).detach().cpu().numpy()
+                self.results["hessian"] = hessian.reshape(N * 3, N * 3)
+                self.cnt_hessian_autograd += 1
         else:
             with torch.no_grad():
                 energy, forces, out = self.potential.forward(
                     batch, eigen=False, hessian=do_hessian
                 )
                 if do_hessian:
-                    N = batch.pos.shape[0]
                     self.results["hessian"] = (
                         out["hessian"].detach().cpu().numpy().reshape(N * 3, N * 3)
                     )
                     self.cnt_hessian_predict += 1
 
-        # Store results
-        self.results = {}
-
         # Energy is per molecule, extract scalar value
         self.results["energy"] = float(energy.detach().cpu().item())
-
-        if do_autograd:
-            hessian = compute_hessian(batch.pos, energy, forces).detach().cpu().numpy()
-            N = batch.pos.shape[0]
-            self.results["hessian"] = hessian.reshape(N * 3, N * 3)
-            self.cnt_hessian_autograd += 1
-
         # Forces shape: [n_atoms, 3]
         self.results["forces"] = forces.detach().cpu().numpy().reshape(-1)
 
@@ -191,7 +188,9 @@ def get_equiformer_calculator(device="cpu", ckpt_path=None, config_path=None, **
 
 
 class EquiformerMLFF:
-    """Equiformer calculator for pysisyphus"""
+    """Equiformer calculator for pysisyphus.
+    Everything in Bohr and Hartree. Unit conversion taken from LeftNetMLFF.
+    """
 
     def __init__(
         self,
@@ -304,6 +303,7 @@ class EquiformerMLFF:
             raise ValueError(f"Invalid hessian method: {hessian_method}")
         
         N = batch.pos.shape[0]
+        # ev, angstrom -> hartree (au), bohr
         energy = energy.item() / AU2EV
         forces = forces.detach().cpu().numpy().reshape(-1) / AU2EV * BOHR2ANG
         hessian = hessian.detach().cpu().numpy()
