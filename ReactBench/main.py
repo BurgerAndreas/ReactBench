@@ -995,6 +995,9 @@ if __name__ == "__main__":
                 # Check if it's a boolean
                 if value.lower() in ["true", "false"]:
                     value = value.lower() == "true"
+                # Check if it is None
+                elif value.lower() in ["none", "null"]:
+                    value = None
                 # Otherwise keep as string
 
             if key not in parameters:

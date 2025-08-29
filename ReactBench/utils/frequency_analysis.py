@@ -121,7 +121,8 @@ def get_trans_rot_projector(cart_coords, masses, full=False):
 
 
 def mass_weigh_hessian(hessian, masses3d):
-    """Inverted square root of the mass matrix."""
+    """mass-weighted hessian M^(-1/2) H M^(-1/2)
+    Inverted square root of the mass matrix."""
     mm_sqrt_inv = np.diag(1 / (masses3d**0.5))
     return mm_sqrt_inv.dot(hessian).dot(mm_sqrt_inv)
 
@@ -137,6 +138,7 @@ def unweight_mw_hessian(mw_hessian, masses3d):
 
 
 def eckart_projection_notmw(hessian, cart_coords, atomsymbols):
+    """Do Eckart projection starting from not-mass-weighted Hessian."""
     masses = np.array([MASS_DICT[atom.lower()] for atom in atomsymbols])
     masses3d = np.repeat(masses, 3)
     mw_hessian = mass_weigh_hessian(hessian, masses3d)
@@ -146,6 +148,7 @@ def eckart_projection_notmw(hessian, cart_coords, atomsymbols):
     return (proj_hessian + proj_hessian.T) / 2
 
 def eckart_projection_mw(mw_hessian, cart_coords, atomsymbols):
+    """Do Eckart projection starting from mass-weighted Hessian."""
     masses = np.array([MASS_DICT[atom.lower()] for atom in atomsymbols])
     P = get_trans_rot_projector(cart_coords, masses=masses, full=False)
     proj_hessian = P.dot(mw_hessian).dot(P.T)
@@ -174,7 +177,7 @@ def load_hessian_h5(h5_path):
 def analyze_frequencies(
     hessian: np.ndarray | str, # Hartree/Bohr^2
     cart_coords: np.ndarray, # Bohr
-    atomsymbols: list,
+    atomsymbols: list[str],
     ev_thresh: float = -1e-6,
 ):
     if isinstance(hessian, str):
@@ -186,7 +189,10 @@ def analyze_frequencies(
             f"XYZ and Hessian coordinates do not match\n {np.abs(cart_coords - coords3d).max():.1e}\n {np.abs(cart_coords - (coords3d / ANG2BOHR)).max():.1e}\n {_file}"
     
     proj_hessian = eckart_projection_notmw(hessian, cart_coords, atomsymbols)
-    eigvals, _ = np.linalg.eigh(proj_hessian)
+    eigvals, eigvecs = np.linalg.eigh(proj_hessian)
+    sorted_inds = np.argsort(eigvals)
+    eigvals = eigvals[sorted_inds]
+    eigvecs = eigvecs[:, sorted_inds]
 
     neg_inds = eigvals < ev_thresh
     neg_eigvals = eigvals[neg_inds]
@@ -199,6 +205,7 @@ def analyze_frequencies(
         wavenumbers = None
     return {
         "eigvals": eigvals,
+        "eigvecs": eigvecs,
         "wavenumbers": wavenumbers,
         "neg_eigvals": neg_eigvals,
         "neg_num": neg_num,
