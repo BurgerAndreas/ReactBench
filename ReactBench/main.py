@@ -969,6 +969,32 @@ def run_gsm_rsprfo_irc(
 
 
 if __name__ == "__main__":
+    """Metrics:
+    gsm_success
+    Number of successful GSM calculations that lead to an initial guess
+
+    converged_ts
+    local TS search (RS-P-RFO) converged
+    Convergence is defined as reaching all the following criteria within 50 steps: maximum force of $4.5e^{-4}$, RMS force of $3.0e^{-4}$, maximum step of $1.8e^{-3}$, RMS step of $1.2e^{-3}$ in atomic units (Hartree, Bohr), default in Gaussian.
+
+    ts_success
+    if is transition state according to frequency analysis
+
+    convert_ts
+    converged and ts_success
+    not the same as ts_success
+
+    irc_success (ignore)
+    IRC found two different geometries, both different from the initial transition state
+    (transition state, reactant, product)
+    This counts how many structures have energies different from the minimum.
+    Since one structure will always be 0 (the lowest energy), having ≥2 non-zero values means:
+    At least 3 distinct energy levels were found (minimum + 2 others)
+
+    intended_count
+    converged to initial reactant and product
+    """
+
     parameters_yaml = sys.argv[1]
     parameters = yaml.load(open(parameters_yaml, "r"), Loader=yaml.FullLoader)
 

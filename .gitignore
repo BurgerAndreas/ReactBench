@@ -1,13 +1,17 @@
 __pycache__/
 *.egg-info/
-*.ckpt
-test*/
 dependencies/
+.ruff_cache/
+.cursor/
+launch.json
+.vscode/
 
 
 *.h5
 *.xyz
 *.log
+*.ckpt
+test*/
 
 data/ts1x
 data/*
@@ -17,9 +21,6 @@ data/*
 # logging
 wandb/
 outslurm/
-
-.ruff_cache/
-.cursor/
 
 # save computation results
 scratch/

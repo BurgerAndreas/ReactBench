@@ -23,7 +23,8 @@ uv run scripts/eval_horm.py --max_samples=1000 --ckpt_path=ckpt/left-df.ckpt --r
 uv run scripts/eval_horm.py --max_samples=1000 --ckpt_path=ckpt/eqv2.ckpt --redo=True; 
 uv run scripts/eval_horm.py --ckpt_path=$HPCKPT --hessian_method=predict  --max_samples=1000;
 
-# Plot results in results/eqv2_ts1x-val_autograd_metrics.csv
+# Plot results in ../gad-ff/results/eqv2_ts1x-val_autograd_metrics.csv / wandb export
+uv run scripts/plot_frequency_analysis.py
 
 # Speed and memory comparison (plot included)
 # ~1h
@@ -36,6 +37,8 @@ uv run scripts/speed_comparison.py speed --dataset ts1x-val.lmdb --max_samples_p
 cd ../ReactBench
 uv run ReactBench/main.py config.yaml --calc=equiformer --hessian_method=autograd --redo_all=True --config_path=null
 uv run ReactBench/main.py config.yaml --calc=equiformer --ckpt_path=$HPCKPT --hessian_method=predict --redo_all=True
+
+# plot
 
 # ~3h
 cd ../ReactBench
