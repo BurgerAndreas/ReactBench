@@ -19,7 +19,7 @@ multiplicity:  1     # system multiplicity (spin + 1)
 # - leftnet-d: LeftNet model with direct forces (fine-tuned)
 # - mace-pretrain: MACE model with pretraining (fine-tuned)
 # - mace-finetuned
-calc:          equiformer
+calc: equiformer
 ckpt_path: null
 config_path: auto # auto: config loaded from ckpt_path
 hessian_method: "autograd"

@@ -9,7 +9,7 @@ from ReactBench.MLIP.leftnet.oa_reactdiff.trainer.calculator import (
 
 
 # get leftnet calculator for run_pygsm.py
-def get_leftnet_calculator(device="cpu", use_autograd=True, ckpt_path=None):
+def get_leftnet_calculator(device="cpu", use_autograd=True, ckpt_path=None, **kwargs):
     if ckpt_path is None:
         # ReactBench/Calculators/
         this_file_dir = os.path.dirname(os.path.abspath(__file__))
@@ -20,6 +20,7 @@ def get_leftnet_calculator(device="cpu", use_autograd=True, ckpt_path=None):
         else:
             ckpt_path = f"{proj_root_dir}/ckpt/leftnet-df.ckpt"
         print(f"Using default checkpoint for LeftNet: {ckpt_path}")
+    print(f"{__file__} get_leftnet_calculator ignoring kwargs: \n{kwargs}")
     return LeftNetCalculator(weight=ckpt_path, device=device, use_autograd=use_autograd)
 
 
@@ -27,7 +28,7 @@ def get_leftnet_calculator(device="cpu", use_autograd=True, ckpt_path=None):
 class LeftNetMLFF:
     """LeftNet calculator for pysisyphus"""
 
-    def __init__(self, device="cpu", use_autograd=True, ckpt_path=None):
+    def __init__(self, device="cpu", use_autograd=True, ckpt_path=None, **kwargs):
         """
         Initialize LeftNet calculator
 
@@ -38,27 +39,24 @@ class LeftNetMLFF:
         use_autograd : bool
             Whether to use autograd for force calculation
         """
+        print(f"{__file__} LeftNetMLFF ignoring kwargs: \n{kwargs}")
         self.device = device
         self.use_autograd = use_autograd
+        print(f"{__file__} LeftNetMLFF use_autograd={use_autograd}")
         if ckpt_path is None:
             this_file_dir = os.path.dirname(os.path.abspath(__file__))
             proj_root_dir = os.path.dirname(os.path.dirname(this_file_dir))
+            # ckpt are from ReactBench paper, not HORM
             if use_autograd:
                 ckpt_path = f"{proj_root_dir}/ckpt/leftnet.ckpt"
             else:
                 ckpt_path = f"{proj_root_dir}/ckpt/leftnet-df.ckpt"
-        if use_autograd:
-            self.model = LeftNetCalculator(
-                weight=ckpt_path,
-                device=device,
-                use_autograd=use_autograd,
-            )
-        else:
-            self.model = LeftNetCalculator(
-                weight=ckpt_path,
-                device=device,
-                use_autograd=use_autograd,
-            )
+            print(f"{__file__} LeftNetMLFF using default checkpoint: {ckpt_path}")
+        self.model = LeftNetCalculator(
+            weight=ckpt_path,
+            device=device,
+            use_autograd=use_autograd,
+        )
 
     def get_energy(self, molecule):
         """Get energy for pysisyphus interface"""

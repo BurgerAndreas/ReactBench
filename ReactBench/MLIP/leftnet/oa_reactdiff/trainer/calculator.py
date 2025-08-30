@@ -7,6 +7,8 @@ from oa_reactdiff.trainer.potential_module import PotentialModule
 from torch_geometric.data import Data
 import traceback
 
+# from ReactBench.MLIP.leftnet.oa_reactdiff.model import LEFTNet
+
 
 def onehot_convert(atomic_numbers):
     """

@@ -1,7 +1,8 @@
 #!/bin/env python
 # Author: Qiyuan Zhao (zhaoqy1996@gmail.com)
 
-import os, sys
+import os
+import sys
 from glob import glob
 import yaml
 import logging
@@ -27,6 +28,8 @@ from ReactBench.main_functions import analyze_outputs
 from ReactBench.pysis import PYSIS
 from ReactBench.gsm import PYGSM
 
+
+import traceback
 
 class DummyLogger:
     def __init__(self, *args, **kwargs):
@@ -67,6 +70,12 @@ def generate_run_name(args):
     _name += "_" + args["hessian_method"] if args["hessian_method"] else "autograd"
     return _name
 
+def get_val(line, searchstr):
+    _val = line.split(searchstr)[1].strip()
+    if _val in [None, "None", 'none']:
+        return None
+    else:
+        return int(_val)
 
 def parse_pysis_output(pysistsopt_output_files):
     tsopt_outs = {}
@@ -81,7 +90,7 @@ def parse_pysis_output(pysistsopt_output_files):
     for f in pysistsopt_output_files:
         with open(f, "r", encoding="utf-8") as f:
             lines = f.readlines()
-            for line in reversed(lines[-60:]):
+            for line in reversed(lines): #[-60:]):
                 # search for msg after "pysis result:"
                 # pysis result:
                 if "pysis result:" in line:
@@ -93,7 +102,7 @@ def parse_pysis_output(pysistsopt_output_files):
                 # Cycles taken: ...
                 if "Cycles taken:" in line:
                     pysis_cycles_taken.append(
-                        int(line.split("Cycles taken:")[1].strip())
+                        get_val(line, searchstr="Cycles taken:")
                     )
                 # Time taken: ... s
                 if "Time taken:" in line:
@@ -103,34 +112,34 @@ def parse_pysis_output(pysistsopt_output_files):
                 # autograd neg_num: ...
                 if "final autograd neg_num:" in line:
                     autograd_neg_num.append(
-                        int(line.split("autograd neg_num:")[1].strip())
+                        get_val(line, searchstr="autograd neg_num:")
                     )
                 # predict neg_num: ...
                 if "final predict neg_num:" in line:
                     predict_neg_num.append(
-                        int(line.split("predict neg_num:")[1].strip())
+                        get_val(line, searchstr="predict neg_num:")
                     )
                 # cnt_hessian_autograd: ...
                 if "cnt_hessian_autograd:" in line:
                     cnt_hessian_autograd.append(
-                        int(line.split("cnt_hessian_autograd:")[1].strip())
+                        get_val(line, searchstr="cnt_hessian_autograd:")
                     )
                 # cnt_hessian_predict: ...
                 if "cnt_hessian_predict:" in line:
                     cnt_hessian_predict.append(
-                        int(line.split("cnt_hessian_predict:")[1].strip())
+                        get_val(line, searchstr="cnt_hessian_predict:")
                     )
             # get first lines to read initial Hessian frequency analysis
-            for line in lines[100:200]:
+            for line in lines: # [100:200]:
                 # autograd neg_num: ...
                 if "initial autograd neg_num:" in line:
                     initial_autograd_neg_num.append(
-                        int(line.split("autograd neg_num:")[1].strip())
+                        get_val(line, searchstr="autograd neg_num:")
                     )
                 # predict neg_num: ...
                 if "initial predict neg_num:" in line:
                     initial_predict_neg_num.append(
-                        int(line.split("predict neg_num:")[1].strip())
+                        get_val(line, searchstr="predict neg_num:")
                     )
     # count how many neg_num are == 1 for final hessian
     return dict(
@@ -187,16 +196,16 @@ def _monitor_results_periodically(
             for f in pygsm_output_files:
                 with open(f, "r", encoding="utf-8") as f:
                     lines = f.readlines()
-                    for line in reversed(lines[-20:]):
+                    for line in reversed(lines): #[-20:]):
                         if "optimize_string result:" in line:
                             msg = line.split("optimize_string result:")[1].strip()
                             if msg not in gsm_outs.keys():
                                 gsm_outs["monitor/" + "optim_string/" + msg] = 0
                             gsm_outs["monitor/" + "optim_string/" + msg] += 1
-                    if "Time taken:" in line:
-                        times_taken.append(
-                            float(line.split("Time taken:")[1].split("s")[0].strip())
-                        )
+                        if "Time taken:" in line:
+                            times_taken.append(
+                                float(line.split("Time taken:")[1].split("s")[0].strip())
+                            )
 
             # for new pygsm_output.txt files, print the last 20 lines so wandb captures them
             new_pygsm_output_files = [
@@ -292,6 +301,7 @@ def _monitor_results_periodically(
         except Exception as _e:
             # Avoid crashing the main run due to monitor issues
             print(f"Error in monitor: {_e}")
+            traceback.print_exc()
             # logger.info(f"Error in monitor: {_e}")
             pass
         finally:
@@ -381,6 +391,12 @@ def launch_tssearch_processes(args: dict, wandb_run_id=None, wandb_kwargs={}):
 
     if args.get("only_cnt_results", False):
         logger = DummyLogger()
+        ## Load in input rxns
+        rxns_confs = [
+            rxn
+            for rxn in sorted(os.listdir(f"{scratch}/init_rxns"))
+            if rxn[-4:] == ".xyz"
+        ]
     else:
         # create folders
         os.makedirs(scratch, exist_ok=True)
@@ -501,7 +517,7 @@ def launch_tssearch_processes(args: dict, wandb_run_id=None, wandb_kwargs={}):
         print(f"Total running time: {end - start:.1f}s")
         logger.info(f"Total running time: {end - start:.1f}s\n")
 
-        # Analyze the output
+        # Analyze the output -> create IRC-record.txt
         analyze_outputs(scratch, irc_jobs, logger, charge=charge)
         logger.info(f"All reaction information is stored in {scratch}/IRC-record.txt")
 
@@ -533,7 +549,7 @@ def launch_tssearch_processes(args: dict, wandb_run_id=None, wandb_kwargs={}):
             true_ts_autograd = False
             true_ts_predict = False
             run_converged = False
-            for line in lines[-80:]:
+            for line in lines: #[-80:]:
                 if "final Imaginary frequencies" in line:
                     # end point is index-1 saddle point (one imaginary frequency)
                     freq = line.split("[")[1].split("]")[0].split()
@@ -579,7 +595,7 @@ def launch_tssearch_processes(args: dict, wandb_run_id=None, wandb_kwargs={}):
             # This counts how many structures have energies different from the minimum.
             # Since one structure will always be 0 (the lowest energy), having ≥2 non-zero values means:
             # At least 3 distinct energy levels were found (minimum + 2 others)
-            for line in lines[-30:]:
+            for line in lines: #[-30:]:
                 # example line:
                 # Left:   413.21 kJ mol⁻¹ (1 geometry)
                 # TS:   620.89 kJ mol⁻¹ (1 geometry)
@@ -593,15 +609,25 @@ def launch_tssearch_processes(args: dict, wandb_run_id=None, wandb_kwargs={}):
             if sum([left != 0, ts != 0, right != 0]) >= 2:
                 irc_success += 1
 
+    num_irc_output_files = len(glob(f"{scratch}/*/IRC/pysis_irc_output.txt"))
+    print(f"Number of IRC output files: {num_irc_output_files}")
     print(f"Number of successful IRC calculations: {irc_success}")
 
     # Count intended reactions if IRC-record.txt exists
     # Intended means that the IRC calculation converged to the reactant and product structures
     irc_record = os.path.join(scratch, "IRC-record.txt")
+    print(f"Found IRC-record.txt: {irc_record}")
     if os.path.exists(irc_record):
         with open(irc_record, "r") as f:
             intended_count = sum(line.count("Intended") for line in f)
+        with open(irc_record, "r") as f:
+            r_unintended_count = sum(line.count("R_Unintended") for line in f)
+        with open(irc_record, "r") as f:
+            p_unintended_count = sum(line.count("P_Unintended") for line in f)
+
         print(f"Number of intended reactions:          {intended_count}")
+        print(f"Number of R_Unintended reactions:       {r_unintended_count}")
+        print(f"Number of P_Unintended reactions:       {p_unintended_count}")
 
     # Collect the paths for all hessians after the local TS search
     final_hessian_autograd_paths = glob(f"{scratch}/*/TSOPT/final_hessian_autograd.h5")
@@ -870,6 +896,11 @@ def run_gsm_rsprfo_irc(
     print(msg)
     logger.info(msg)
 
+    # if tsopt_job.is_true_ts() is False:
+    #     print(f"TSopt job {tsopt_job.jobname} fails to locate a true transition state, skip this reaction...")
+    #     logger.info(f"TSopt job {tsopt_job.jobname} fails to locate a true transition state, skip this reaction...")
+    #     return (rxn_ind, False, False)
+
     strategy = args.get("ts_require", "default")
     msg = f"TSopt job {tsopt_job.jobname} fails to locate a true transition state, skip this reaction."
     # always do IRC
@@ -899,6 +930,10 @@ def run_gsm_rsprfo_irc(
             print(msg)
             logger.info(msg)
             return (rxn_ind, False, False)
+        elif is_true_ts["default"] is None:
+            _msg = "is_true_ts is None! Assuming true?"
+            print(_msg)
+            logger.info(_msg)
     # only the autograd hessian method must be true
     elif strategy == "autograd":
         if is_true_ts["autograd"] is False:

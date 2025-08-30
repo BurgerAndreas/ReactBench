@@ -4,3 +4,5 @@ from .egnn import EGNN
 from .core import MLP
 from .util_funcs import coord2diff, move_by_com
 from .leftnet import LEFTNet
+
+# from ReactBench.MLIP.leftnet.oa_reactdiff.model import LEFTNet

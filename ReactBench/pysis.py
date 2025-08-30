@@ -461,6 +461,15 @@ class PYSIS:
                 if "pysisyphus run took" in line:
                     return True
 
+
+        with open(self.output, "r", encoding="utf-8") as f:
+            out = "\n".join(f.readlines()[-20:])
+        with open(self.errlog, "r", encoding="utf-8") as f:
+            _err = "\n".join(f.readlines()[-20:])
+        
+        # print(">"*40 + f" pysis {self.jobname} calculation_terminated_normally: \n{out}\n-\n{_err}\n" + "<"*40)
+        print(">"*40 + f" pysis {self.jobname} calculation_terminated_normally: \n{_err}\n" + "<"*40)
+
         return False
 
     def optimization_converged(self) -> bool:
@@ -511,7 +520,7 @@ class PYSIS:
 
         return True
 
-    def is_true_ts(self) -> bool:
+    def is_true_ts(self, max_img_freq=-10) -> dict:
         """Check if structure has exactly one significant imaginary frequency.
 
         Returns:
@@ -524,7 +533,7 @@ class PYSIS:
             return False
 
         self.freq_analysis = {"num_im_freqs": f"self.output {self.output} not found"}
-        _is_true_ts = {"default": False}
+        _is_true_ts = {"default": None}
 
         # lines are written in
         # dependencies/pysisyphus/pysisyphus/helpers.py do_final_hessian()
@@ -534,12 +543,12 @@ class PYSIS:
                 if "Imaginary frequencies:" in line:
                     freqs = [float(x) for x in re.findall(r"-?\d+\.?\d*", line)]
                     self.freq_analysis["num_im_freqs"] = len(freqs)
-                    _is_true_ts["default"] = len(freqs) == 1 and freqs[0] < -10
+                    _is_true_ts["default"] = (len(freqs) == 1) and (freqs[0] < max_img_freq)
                 for hessian_method in ["autograd", "predict"]:
                     if f"{hessian_method} img freqs:" in line:
                         freqs = [float(x) for x in re.findall(r"-?\d+\.?\d*", line)]
                         self.freq_analysis[hessian_method] = len(freqs)
-                        _is_true_ts[hessian_method] = len(freqs) == 1 and freqs[0] < -10
+                        _is_true_ts[hessian_method] = (len(freqs) == 1) and (freqs[0] < max_img_freq)
 
         return _is_true_ts
 
