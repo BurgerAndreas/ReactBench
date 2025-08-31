@@ -22,9 +22,13 @@ import ase.atoms
 
 # Try to import Equiformer dependencies
 try:
-    from ocpmodels.common.relaxation.ase_utils import ase_atoms_to_torch_geometric_hessian, coord_atoms_to_torch_geometric_hessian
+    from ocpmodels.common.relaxation.ase_utils import (
+        ase_atoms_to_torch_geometric_hessian,
+        coord_atoms_to_torch_geometric_hessian,
+    )
     from nets.equiformer_v2.equiformer_v2_oc20 import EquiformerV2_OC20
     from nets.prediction_utils import compute_extra_props
+
     equiformer_available = True
 except ImportError:
     equiformer_available = False
@@ -59,7 +63,6 @@ class EquiformerCalculator(ASECalculator):
             )
 
         ASECalculator.__init__(self, **kwargs)
-
 
         _args = {
             "ckpt_path": ckpt_path,
@@ -163,7 +166,9 @@ class EquiformerCalculator(ASECalculator):
                 energy, forces, _ = self.potential.forward(
                     batch, eigen=False, otf_graph=True
                 )
-                hessian = compute_hessian(batch.pos, energy, forces).detach().cpu().numpy()
+                hessian = (
+                    compute_hessian(batch.pos, energy, forces).detach().cpu().numpy()
+                )
                 self.results["hessian"] = hessian.reshape(N * 3, N * 3)
                 self.cnt_hessian_autograd += 1
         else:
@@ -229,7 +234,7 @@ class EquiformerMLFF:
             **kwargs,
         )
         self.reset()
-    
+
     def reset(self):
         self.cnt_hessian_autograd = 0
         self.cnt_hessian_predict = 0
@@ -308,7 +313,7 @@ class EquiformerMLFF:
             self.cnt_hessian_predict += 1
         else:
             raise ValueError(f"Invalid hessian method: {hessian_method}")
-        
+
         N = batch.pos.shape[0]
         # ev, angstrom -> hartree (au), bohr
         energy = energy.item() / AU2EV
@@ -327,6 +332,7 @@ class EquiformerMLFF:
 
 #########################################################################################
 
+
 # pysisyphus.linalg
 def finite_difference_hessian(
     coords: NDArray[float],
@@ -342,6 +348,7 @@ def finite_difference_hessian(
     for the different accuracies.
     """
     if callback is None:
+
         def callback(*args):
             pass
 
@@ -375,19 +382,21 @@ def finite_difference_hessian(
     fd_hessian = (fd_hessian + fd_hessian.T) / 2
     return fd_hessian
 
+
 SYMBOL_TO_Z = {
     "H": 1,
     "C": 6,
     "N": 7,
     "O": 8,
 }
-class PysisEquiformer(PysisCalculator):
 
+
+class PysisEquiformer(PysisCalculator):
     conf_key = "mlff"
 
     def __init__(
         self,
-        device='cpu',
+        device="cpu",
         ckpt_path=None,
         config_path=None,
         hessian_method="autograd",
@@ -402,7 +411,7 @@ class PysisEquiformer(PysisCalculator):
         ----------
         method: str
             select a MLFF from calculators in ReactBench
-        
+
         mem : int
             Mememory per core in MB.
         quiet : bool, optional
@@ -414,7 +423,7 @@ class PysisEquiformer(PysisCalculator):
             raise ImportError(
                 f"Equiformer is not available. Loading imports failed in {__file__}."
             )
-        
+
         _args = {
             "ckpt_path": ckpt_path,
             "device": device,
@@ -530,10 +539,12 @@ class PysisEquiformer(PysisCalculator):
             "forces": forces.detach().cpu().numpy().reshape(-1) / AU2EV * BOHR2ANG,
         }
 
-    def get_hessian(self, atoms: list[str], coords: NDArray[float], hessian_method=None, **kwargs):
+    def get_hessian(
+        self, atoms: list[str], coords: NDArray[float], hessian_method=None, **kwargs
+    ):
         if hessian_method is None:
             hessian_method = self.hessian_method
-        with_grad = (hessian_method == "autograd")
+        with_grad = hessian_method == "autograd"
 
         batch = self.prepare_batch(atoms, coords, with_grad)
 
@@ -563,7 +574,7 @@ class PysisEquiformer(PysisCalculator):
             self.cnt_hessian_predict += 1
         else:
             raise ValueError(f"Invalid hessian method: {hessian_method}")
-        
+
         N = batch.pos.shape[0]
         # ev, angstrom -> hartree (au), bohr
         energy = energy.item() / AU2EV
@@ -578,7 +589,7 @@ class PysisEquiformer(PysisCalculator):
             "hessian": hessian,
         }
         return results
-    
+
     def get_num_hessian(self, atoms, coords, **prepare_kwargs):
         """
         geom.calculator.get_num_hessian(geom.atoms, geom._coords)

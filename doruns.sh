@@ -1,10 +1,5 @@
 
-# findckpt 581483
-# l=3 luca8 + luca/10 bz=128
-# /project/aip-aspuru/aburger/gad-ff/checkpoint/gadff/hesspredalldatanumlayershessian3presetluca8w10onlybz128-581483-20250826-074746
-
-# getreactckpt
-# rsync -avz --progress aburger@killarney.alliancecan.ca:/project/aip-aspuru/aburger/gad-ff/checkpoint/gadff/$1/last.ckpt /ssd/Code/ReactBench/ckpt/hesspred/$1.ckpt
+# source /ssd/Code/ReactBench/doruns.sh
 
 # /ssd/Code/ReactBench/ckpt/hesspred/alldatagputwoalphadrop0droppathrate0projdrop0-394770-20250806-133956.ckpt
 export HPCKPT="/ssd/Code/ReactBench/ckpt/hesspred/hesspredalldatanumlayershessian3presetluca8w10onlybz128-581483-20250826-074746.ckpt"
@@ -13,15 +8,13 @@ export HPCKPT="/ssd/Code/ReactBench/ckpt/hesspred/hesspredalldatanumlayershessia
 cd ../gad-ff
 source .venv/bin/activate
 
-# MAE, cosine similarity, ...
-# ~3h
-cd ../gad-ff
-# other HORM models
+# cd ../gad-ff
+# # other HORM models
 uv run scripts/eval_horm.py --max_samples=1000 --ckpt_path=ckpt/alpha.ckpt --redo=True; 
 uv run scripts/eval_horm.py --max_samples=1000 --ckpt_path=ckpt/left.ckpt --redo=True; 
 uv run scripts/eval_horm.py --max_samples=1000 --ckpt_path=ckpt/left-df.ckpt --redo=True; 
 uv run scripts/eval_horm.py --max_samples=1000 --ckpt_path=ckpt/eqv2.ckpt --redo=True; 
-uv run scripts/eval_horm.py --ckpt_path=$HPCKPT --hessian_method=predict  --max_samples=1000;
+uv run scripts/eval_horm.py --ckpt_path=$HPCKPT --hessian_method=predict --max_samples=1000 --redo=True;
 
 
 # ~24h
@@ -30,10 +23,22 @@ uv run scripts/eval_horm.py --ckpt_path=$HPCKPT --hessian_method=predict  --max_
 # uv run ReactBench/main.py config.yaml --calc=equiformer --hessian_method=autograd --config_path=null # --redo_all=True
 # uv run ReactBench/main.py config.yaml --calc=equiformer --ckpt_path=$HPCKPT --hessian_method=predict 
 
+# uv run ReactBench/main.py config.yaml --calc=leftnet --hessian_method=autograd --config_path=null --ckpt_path=/ssd/Code/ReactBench/ckpt/horm/left.ckpt
+uv run ReactBench/main.py config.yaml --calc=leftnet-d --hessian_method=autograd --config_path=null --ckpt_path=/ssd/Code/ReactBench/ckpt/horm/left-df.ckpt
+uv run ReactBench/main.py config.yaml --calc=mace-finetuned --hessian_method=autograd 
+
+
+uv run scripts/speed_comparison.py --dataset RGD1.lmdb --max_samples_per_n 10 --ckpt_path ../ReactBench/ckpt/hesspred/eqv2hp1.ckpt
+# uv run scripts/speed_comparison.py --dataset RGD1.lmdb --max_samples_per_n 100 --ckpt_path ../ReactBench/ckpt/hesspred/eqv2hp1.ckpt
+uv run scripts/speed_comparison_incltransform.py --dataset RGD1.lmdb --max_samples_per_n 100 --ckpt_path ../ReactBench/ckpt/hesspred/eqv2hp1.ckpt
+
 
 cd ../gad-ff
-# --redo True
-uv run scripts/second_order_relaxation_pysiyphus.py --max_samples 30 --xyz t1x --thresh gau --max_cycles 100
-uv run scripts/second_order_relaxation_pysiyphus.py --max_samples 30 --xyz t1x --thresh gau --max_cycles 100 --coord cart
+# uv run scripts/second_order_relaxation_pysiyphus.py --max_samples 30 --xyz t1x --thresh gau --max_cycles 150
+
+# # /ssd/Code/gad-ff/data/t1x_val_reactant_hessian_100_noiserms0.03.h5
+# uv run scripts/second_order_relaxation_pysiyphus.py --max_samples 30 --xyz t1x_0.03 --thresh gau --max_cycles 150 
+# # /ssd/Code/gad-ff/data/t1x_val_reactant_hessian_100_noiserms0.05.h5
+# uv run scripts/second_order_relaxation_pysiyphus.py --max_samples 30 --xyz t1x_0.05 --thresh gau --max_cycles 150
 
 # Optional: equivariance test

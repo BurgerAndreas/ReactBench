@@ -76,7 +76,7 @@ def get_trans_rot_vectors(cart_coords, masses, rot_thresh=1e-6):
     Iv = Iv.T
 
     masses_rep = np.repeat(masses, 3)
-    sqrt_masses = np.sqrt(masses_rep) # (3N,)
+    sqrt_masses = np.sqrt(masses_rep)  # (3N,)
     num = len(masses)
 
     def get_trans_vecs():
@@ -84,7 +84,7 @@ def get_trans_rot_vectors(cart_coords, masses, rot_thresh=1e-6):
 
         for vec in ((1, 0, 0), (0, 1, 0), (0, 0, 1)):
             _ = sqrt_masses * np.tile(vec, num)
-            yield _ / np.linalg.norm(_) # (3N,)
+            yield _ / np.linalg.norm(_)  # (3N,)
 
     def get_rot_vecs():
         """As done in geomeTRIC."""
@@ -97,16 +97,16 @@ def get_trans_rot_vectors(cart_coords, masses, rot_thresh=1e-6):
                 rot_vecs[0, 3 * i + ix] = Iv[2, ix] * p_vec[1] - Iv[1, ix] * p_vec[2]
                 rot_vecs[1, 3 * i + ix] = Iv[2, ix] * p_vec[0] - Iv[0, ix] * p_vec[2]
                 rot_vecs[2, 3 * i + ix] = Iv[0, ix] * p_vec[1] - Iv[1, ix] * p_vec[0]
-        rot_vecs *= sqrt_masses[None, :] 
-        return rot_vecs # (3, 3N)
+        rot_vecs *= sqrt_masses[None, :]
+        return rot_vecs  # (3, 3N)
 
-    trans_vecs = list(get_trans_vecs()) # (3, 3N)
-    rot_vecs = np.array(get_rot_vecs()) # (3, 3N)
+    trans_vecs = list(get_trans_vecs())  # (3, 3N)
+    rot_vecs = np.array(get_rot_vecs())  # (3, 3N)
     # Drop vectors with vanishing norms
     rot_vecs = rot_vecs[np.linalg.norm(rot_vecs, axis=1) > rot_thresh]
-    tr_vecs = np.concatenate((trans_vecs, rot_vecs), axis=0) # (6, 3N)
+    tr_vecs = np.concatenate((trans_vecs, rot_vecs), axis=0)  # (6, 3N)
     tr_vecs = np.linalg.qr(tr_vecs.T)[0].T
-    return tr_vecs # (6, 3N)
+    return tr_vecs  # (6, 3N)
 
 
 def get_trans_rot_projector(cart_coords, masses, full=False):
@@ -154,6 +154,7 @@ def eckart_projection_notmw(hessian, cart_coords, atomsymbols):
     # Projection seems to slightly break symmetry (sometimes?). Resymmetrize.
     return (proj_hessian + proj_hessian.T) / 2
 
+
 def eckart_projection_mw(mw_hessian, cart_coords, atomsymbols):
     """Do Eckart projection starting from mass-weighted Hessian."""
     masses = np.array([MASS_DICT[atom.lower()] for atom in atomsymbols])
@@ -173,28 +174,33 @@ def eigval_to_wavenumber(ev):
     w2nu = np.sign(ev) * np.sqrt(np.abs(ev)) * conv
     return w2nu
 
+
 def load_hessian_h5(h5_path):
     with h5py.File(h5_path, "r") as handle:
         atoms = [atom.capitalize() for atom in handle.attrs["atoms"]]
-        coords3d = handle["coords3d"][:] # Bohr
-        energy = handle.attrs["energy"] # Hartree
-        cart_hessian = handle["hessian"][:] # Hartree/Bohr^2
+        coords3d = handle["coords3d"][:]  # Bohr
+        energy = handle.attrs["energy"]  # Hartree
+        cart_hessian = handle["hessian"][:]  # Hartree/Bohr^2
     return cart_hessian, atoms, coords3d, energy
 
+
 def analyze_frequencies(
-    hessian: np.ndarray | str, # Hartree/Bohr^2
-    cart_coords: np.ndarray, # Bohr
+    hessian: np.ndarray | str,  # Hartree/Bohr^2
+    cart_coords: np.ndarray,  # Bohr
     atomsymbols: list[str],
     ev_thresh: float = -1e-6,
 ):
     if isinstance(hessian, str):
         _file = hessian
-        hessian, atoms, coords3d, energy = load_hessian_h5(hessian) # Bohr and Hartree/Bohr^2
+        hessian, atoms, coords3d, energy = load_hessian_h5(
+            hessian
+        )  # Bohr and Hartree/Bohr^2
         # geom: Geometry = geom_from_hessian(hessian) # Bohr and Hartree/Bohr^2
         # assert np.allclose(geom.coords3d, cart_coords)
-        assert np.allclose(cart_coords, coords3d), \
+        assert np.allclose(cart_coords, coords3d), (
             f"XYZ and Hessian coordinates do not match\n {np.abs(cart_coords - coords3d).max():.1e}\n {np.abs(cart_coords - (coords3d / ANG2BOHR)).max():.1e}\n {_file}"
-    
+        )
+
     proj_hessian = eckart_projection_notmw(hessian, cart_coords, atomsymbols)
     eigvals, eigvecs = np.linalg.eigh(proj_hessian)
     sorted_inds = np.argsort(eigvals)
@@ -243,11 +249,13 @@ def inertia_tensor_torch(coords3d, masses):
     I_xy = -torch.sum(masses_t * x * y)
     I_xz = -torch.sum(masses_t * x * z)
     I_yz = -torch.sum(masses_t * y * z)
-    return torch.stack([
-        torch.stack([I_xx, I_xy, I_xz]),
-        torch.stack([I_xy, I_yy, I_yz]),
-        torch.stack([I_xz, I_yz, I_zz]),
-    ])
+    return torch.stack(
+        [
+            torch.stack([I_xx, I_xy, I_xz]),
+            torch.stack([I_xy, I_yy, I_yz]),
+            torch.stack([I_xz, I_yz, I_zz]),
+        ]
+    )
 
 
 def get_trans_rot_vectors_torch(cart_coords, masses, rot_thresh=1e-6):
@@ -268,32 +276,34 @@ def get_trans_rot_vectors_torch(cart_coords, masses, rot_thresh=1e-6):
     num = masses_t.numel()
 
     # Translation vectors (mass-weighted unit vectors along axes)
-    trans_vecs = [] # (3, 3N)
+    trans_vecs = []  # (3, 3N)
     device = cart_coords_t.device
     for vec in ((1.0, 0.0, 0.0), (0.0, 1.0, 0.0), (0.0, 0.0, 1.0)):
         tiled = _to_torch_double(vec, device=device).repeat(num)
         v = sqrt_masses * tiled
-        trans_vecs.append(v / torch.linalg.norm(v)) # (3N,)
+        trans_vecs.append(v / torch.linalg.norm(v))  # (3N,)
 
     # Rotation vectors
-    rot_vecs = torch.zeros((3, cart_coords_t.numel()), dtype=torch.float64, device=device)
+    rot_vecs = torch.zeros(
+        (3, cart_coords_t.numel()), dtype=torch.float64, device=device
+    )
     for i in range(masses_t.size(0)):
         p_vec = Iv @ coords3d_centered[i]
         for ix in range(3):
             rot_vecs[0, 3 * i + ix] = Iv[2, ix] * p_vec[1] - Iv[1, ix] * p_vec[2]
             rot_vecs[1, 3 * i + ix] = Iv[2, ix] * p_vec[0] - Iv[0, ix] * p_vec[2]
             rot_vecs[2, 3 * i + ix] = Iv[0, ix] * p_vec[1] - Iv[1, ix] * p_vec[0]
-    rot_vecs = rot_vecs * sqrt_masses[None, :] # (3, 3N)
+    rot_vecs = rot_vecs * sqrt_masses[None, :]  # (3, 3N)
 
     # Drop vectors with vanishing norms
-    norms = torch.linalg.norm(rot_vecs, dim=1) # (3)
+    norms = torch.linalg.norm(rot_vecs, dim=1)  # (3)
     keep = norms > rot_thresh
-    rot_vecs = rot_vecs[keep] # (3, 3N)
+    rot_vecs = rot_vecs[keep]  # (3, 3N)
 
-    trans_vecs = torch.stack(trans_vecs) # (3, 3N)
-    tr_vecs = torch.cat([trans_vecs, rot_vecs], dim=0) # (6, 3N)
+    trans_vecs = torch.stack(trans_vecs)  # (3, 3N)
+    tr_vecs = torch.cat([trans_vecs, rot_vecs], dim=0)  # (6, 3N)
     Q, _ = torch.linalg.qr(tr_vecs.T)
-    return Q.T # (6, 3N)
+    return Q.T  # (6, 3N)
 
 
 def get_trans_rot_projector_torch(cart_coords, masses, full=False):
@@ -306,7 +316,7 @@ def get_trans_rot_projector_torch(cart_coords, masses, full=False):
         return P
     else:
         U, S, _ = torch.linalg.svd(tr_vecs.T, full_matrices=True)
-        P = U[:, S.numel():].T
+        P = U[:, S.numel() :].T
         return P
 
 
@@ -327,7 +337,7 @@ def unweight_mw_hessian_torch(mw_hessian, masses3d):
 
 def eckart_projection_notmw_torch(hessian, cart_coords, atomsymbols, ev_thresh=-1e-6):
     """Eckart projection starting from not-mass-weighted Hessian (torch).
-    
+
     hessian: torch.Tensor (N*3, N*3)
     cart_coords: torch.Tensor (N*3)
     atomsymbols: list[str] (N)
@@ -363,7 +373,9 @@ if __name__ == "__main__":
     mw_torch = mass_weigh_hessian_torch(hessian.copy(), masses3d)
     mw_torch_np = mw_torch.detach().cpu().numpy()
     ok_mw = np.allclose(mw_np, mw_torch_np, rtol=1e-6, atol=1e-8)
-    print(f"mass_weigh_hessian match: {ok_mw}, max diff: {np.max(np.abs(mw_np - mw_torch_np)):.3e}")
+    print(
+        f"mass_weigh_hessian match: {ok_mw}, max diff: {np.max(np.abs(mw_np - mw_torch_np)):.3e}"
+    )
     assert ok_mw
 
     # 2) Test trans/rot vectors subspace (compare projectors onto the span)
@@ -375,7 +387,9 @@ if __name__ == "__main__":
     P_np = tr_np.T @ tr_np
     P_t = tr_t_np.T @ tr_t_np
     ok_tr = np.allclose(P_np, P_t, rtol=1e-6, atol=1e-8)
-    print(f"trans/rot subspace projector match: {ok_tr}, max diff: {np.max(np.abs(P_np - P_t)):.3e}")
+    print(
+        f"trans/rot subspace projector match: {ok_tr}, max diff: {np.max(np.abs(P_np - P_t)):.3e}"
+    )
     assert ok_tr
 
     # 3) Test full Eckart pipeline via eigenvalues of projected Hessian
@@ -383,11 +397,14 @@ if __name__ == "__main__":
     torch_proj = eckart_projection_notmw_torch(hessian.copy(), cc.copy(), atoms)
     torch_proj_np = torch_proj.detach().cpu().numpy()
     ok_proj = np.allclose(np_proj, torch_proj_np, rtol=1e-6, atol=1e-8)
-    print(f"Eckart projected matrix match: {ok_proj}, max diff: {np.max(np.abs(np_proj - torch_proj_np)):.3e}")
-    
+    print(
+        f"Eckart projected matrix match: {ok_proj}, max diff: {np.max(np.abs(np_proj - torch_proj_np)):.3e}"
+    )
+
     evals_np, _ = np.linalg.eigh(np_proj)
     evals_t, _ = np.linalg.eigh(torch_proj_np)
     ok_eigs = np.allclose(evals_np, evals_t, rtol=1e-6, atol=1e-8)
-    print(f"Eckart projected eigvals match: {ok_eigs}, max diff: {np.max(np.abs(evals_np - evals_t)):.3e}")
+    print(
+        f"Eckart projected eigvals match: {ok_eigs}, max diff: {np.max(np.abs(evals_np - evals_t)):.3e}"
+    )
     assert ok_eigs
-

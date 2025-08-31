@@ -29,7 +29,7 @@ uv run scripts/plot_frequency_analysis.py
 # Speed and memory comparison (plot included)
 # ~1h
 cd ../gad-ff
-uv run scripts/speed_comparison.py speed --dataset RGD1.lmdb --max_samples_per_n 10 --ckpt_path ../ReactBench/ckpt/hesspred/eqv2hp1.ckpt
+uv run scripts/speed_comparison.py speed --dataset RGD1.lmdb --max_samples_per_n 100 --ckpt_path ../ReactBench/ckpt/hesspred/eqv2hp1.ckpt
 uv run scripts/speed_comparison.py speed --dataset ts1x-val.lmdb --max_samples_per_n 100
 
 # ~24h

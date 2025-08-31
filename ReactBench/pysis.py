@@ -143,6 +143,8 @@ class PYSIS:
         )
         # print(f"pysis {self.jobname} created input file: {self.pysis_input}")
 
+        self.reason_for_failure = 0 # no failure
+
     def generate_calculator_settings(self, calctype="mlff-leftnet", calc_kwargs={}):
         """Generate calculator-specific settings for the input file.
 
@@ -342,11 +344,11 @@ class PYSIS:
         # Check job status before executing
         if self.calculation_terminated_normally():
             msg = f"pysis {self.jobname}: Finished, skip this job..."
-            print(msg)
+            # print(msg)
             return msg
 
         if os.path.isfile(self.output) and not self.restart:
-            msg = f"pysis {self.jobname}: Failed, skip this job..."
+            msg = f"pysis {self.jobname}: Failed, skip this job because restart is False in {__file__}."
             print(msg)
             return msg
 
@@ -355,7 +357,7 @@ class PYSIS:
             env = os.environ.copy()
             env["OMP_NUM_THREADS"] = str(self.nproc)
 
-            print(f"pysis {self.jobname}: Running...")
+            # print(f"pysis {self.jobname}: Running...")
 
             with open(self.output, "w") as stdout, open(self.errlog, "w") as stderr:
                 process = subprocess.Popen(
@@ -379,6 +381,7 @@ class PYSIS:
                     )
                 except subprocess.TimeoutExpired:
                     kill_process_tree(process.pid)
+                    print(f"! pysis {self.jobname}: Timed out after {timeout} seconds")
                     result = subprocess.CompletedProcess(
                         args=f"{self.exe} {self.pysis_input}",
                         returncode=1,
@@ -421,12 +424,13 @@ class PYSIS:
 
         if result.returncode == 0:
             msg = f"pysis {self.jobname}: Finished."
+            # print(msg)
         else:
             msg = f"pysis {self.jobname}: Failed, check {self.errlog}"
             with open(self.output, "a") as f:
-                f.write(f"\nError termination of pysis. Check {self.errlog}\n")
+                f.write(f"\n! Error termination of pysis. Check {self.errlog}\n")
+            print(msg)
 
-        print(msg)
         return msg
 
     def calculation_terminated_with_error(self) -> bool:
@@ -453,6 +457,7 @@ class PYSIS:
             bool: True if calculation completed successfully, False otherwise
         """
         if not os.path.isfile(self.output):
+            self.reason_for_failure = 404 # output file not found
             return False
 
         with open(self.output, "r", encoding="utf-8") as f:
@@ -460,16 +465,21 @@ class PYSIS:
             for line in reversed(lines):
                 if "pysisyphus run took" in line:
                     return True
-
+                    
 
         with open(self.output, "r", encoding="utf-8") as f:
-            out = "\n".join(f.readlines()[-20:])
+            out = "".join(f.readlines()[-20:])
         with open(self.errlog, "r", encoding="utf-8") as f:
-            _err = "\n".join(f.readlines()[-20:])
-        
-        # print(">"*40 + f" pysis {self.jobname} calculation_terminated_normally: \n{out}\n-\n{_err}\n" + "<"*40)
-        print(">"*40 + f" pysis {self.jobname} calculation_terminated_normally: \n{_err}\n" + "<"*40)
+            _err = "".join(f.readlines()[-20:])
 
+        # print(">"*40 + f" pysis {self.jobname} calculation_terminated_normally: \n{out}\n-\n{_err}\n" + "<"*40)
+        print(
+            ">" * 40
+            + f" pysis {self.jobname} calculation_terminated_normally: \n{_err}\n"
+            + "<" * 40
+        )
+
+        self.reason_for_failure = 100 # unknown reason
         return False
 
     def optimization_converged(self) -> bool:
@@ -527,28 +537,40 @@ class PYSIS:
             bool: True if exactly one imaginary frequency < -10 cm^-1, False otherwise
         """
         if not os.path.isfile(self.output):
+            print(f"! pysis {self.jobname} output file not found: {self.output}")
             return False
 
         if not self.calculation_terminated_normally():
+            print(f"! pysis {self.jobname} calculation did not terminate normally: {self.output}")
             return False
 
         self.freq_analysis = {"num_im_freqs": f"self.output {self.output} not found"}
         _is_true_ts = {"default": None}
+        found_img_freqs = False
 
         # lines are written in
         # dependencies/pysisyphus/pysisyphus/helpers.py do_final_hessian()
         with open(self.output, "r", encoding="utf-8") as f:
             lines = f.readlines()
             for line in reversed(lines):
+                # final Imaginary frequencies: [-1096.87] cm⁻¹
+                # final neg_num: 1
                 if "Imaginary frequencies:" in line:
+                    found_img_freqs = True
                     freqs = [float(x) for x in re.findall(r"-?\d+\.?\d*", line)]
                     self.freq_analysis["num_im_freqs"] = len(freqs)
-                    _is_true_ts["default"] = (len(freqs) == 1) and (freqs[0] < max_img_freq)
+                    _is_true_ts["default"] = (len(freqs) == 1) and (
+                        freqs[0] < max_img_freq
+                    )
                 for hessian_method in ["autograd", "predict"]:
                     if f"{hessian_method} img freqs:" in line:
                         freqs = [float(x) for x in re.findall(r"-?\d+\.?\d*", line)]
                         self.freq_analysis[hessian_method] = len(freqs)
-                        _is_true_ts[hessian_method] = (len(freqs) == 1) and (freqs[0] < max_img_freq)
+                        _is_true_ts[hessian_method] = (len(freqs) == 1) and (
+                            freqs[0] < max_img_freq
+                        )
+        if found_img_freqs is False:
+            print(f"! pysis {self.jobname} did not find any imaginary frequencies in {self.output}")
 
         return _is_true_ts
 

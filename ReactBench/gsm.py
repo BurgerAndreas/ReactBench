@@ -107,6 +107,7 @@ class PYGSM:
 
         self.command = " ".join(cmd_parts)
         # print("Command: \n", self.command)
+        self.reason_for_failure = 0 # no failure
 
     def prepare_job(self):
         """Prepare GSM job by setting up working directory and input files."""
@@ -137,7 +138,7 @@ class PYGSM:
                 )
                 self.command += f" -restart_file {self.work_folder}/restart.xyz"
 
-        print(f"pyGSM {self.jobname}: Finished prepping")
+        # print(f"pyGSM {self.jobname}: Finished prepping")
 
     def execute(self, timeout=3600):
         """Execute a GSM calculation.
@@ -150,11 +151,11 @@ class PYGSM:
         """
         if self.calculation_terminated():
             msg = f"pyGSM {self.jobname}: Finished, skipping..."
-            print(msg)
+            # print(msg)
             return msg
 
         if os.path.isfile(self.output) and not self.restart:
-            msg = f"pyGSM {self.jobname}: Failed, skipping..."
+            msg = f"! pyGSM {self.jobname}: Failed, skipping: {self.output}"
             print(msg)
             return msg
 
@@ -243,12 +244,15 @@ class PYGSM:
             bool: True if calculation completed successfully, False otherwise
         """
         if not os.path.isfile(self.output):
+            self.reason_for_failure = 404 # output file not found
             return False
 
         with open(self.output, "r", encoding="utf-8") as f:
             for line in reversed(f.readlines()):
                 if "Finished GSM!" in line:
                     return True
+        
+        self.reason_for_failure = 100 # unknown reason
         return False
 
     def read_error_content(self) -> str:

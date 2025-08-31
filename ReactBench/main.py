@@ -31,6 +31,7 @@ from ReactBench.gsm import PYGSM
 
 import traceback
 
+
 class DummyLogger:
     def __init__(self, *args, **kwargs):
         self.info = lambda x: None
@@ -70,12 +71,14 @@ def generate_run_name(args):
     _name += "_" + args["hessian_method"] if args["hessian_method"] else "autograd"
     return _name
 
+
 def get_val(line, searchstr):
     _val = line.split(searchstr)[1].strip()
-    if _val in [None, "None", 'none']:
+    if _val in [None, "None", "none"]:
         return None
     else:
         return int(_val)
+
 
 def parse_pysis_output(pysistsopt_output_files):
     tsopt_outs = {}
@@ -90,7 +93,7 @@ def parse_pysis_output(pysistsopt_output_files):
     for f in pysistsopt_output_files:
         with open(f, "r", encoding="utf-8") as f:
             lines = f.readlines()
-            for line in reversed(lines): #[-60:]):
+            for line in reversed(lines):  # [-60:]):
                 # search for msg after "pysis result:"
                 # pysis result:
                 if "pysis result:" in line:
@@ -101,9 +104,7 @@ def parse_pysis_output(pysistsopt_output_files):
                     tsopt_outs[_logkey] += 1
                 # Cycles taken: ...
                 if "Cycles taken:" in line:
-                    pysis_cycles_taken.append(
-                        get_val(line, searchstr="Cycles taken:")
-                    )
+                    pysis_cycles_taken.append(get_val(line, searchstr="Cycles taken:"))
                 # Time taken: ... s
                 if "Time taken:" in line:
                     pysis_times_taken.append(
@@ -116,9 +117,7 @@ def parse_pysis_output(pysistsopt_output_files):
                     )
                 # predict neg_num: ...
                 if "final predict neg_num:" in line:
-                    predict_neg_num.append(
-                        get_val(line, searchstr="predict neg_num:")
-                    )
+                    predict_neg_num.append(get_val(line, searchstr="predict neg_num:"))
                 # cnt_hessian_autograd: ...
                 if "cnt_hessian_autograd:" in line:
                     cnt_hessian_autograd.append(
@@ -130,7 +129,7 @@ def parse_pysis_output(pysistsopt_output_files):
                         get_val(line, searchstr="cnt_hessian_predict:")
                     )
             # get first lines to read initial Hessian frequency analysis
-            for line in lines: # [100:200]:
+            for line in lines:  # [100:200]:
                 # autograd neg_num: ...
                 if "initial autograd neg_num:" in line:
                     initial_autograd_neg_num.append(
@@ -196,7 +195,7 @@ def _monitor_results_periodically(
             for f in pygsm_output_files:
                 with open(f, "r", encoding="utf-8") as f:
                     lines = f.readlines()
-                    for line in reversed(lines): #[-20:]):
+                    for line in reversed(lines):  # [-20:]):
                         if "optimize_string result:" in line:
                             msg = line.split("optimize_string result:")[1].strip()
                             if msg not in gsm_outs.keys():
@@ -204,7 +203,9 @@ def _monitor_results_periodically(
                             gsm_outs["monitor/" + "optim_string/" + msg] += 1
                         if "Time taken:" in line:
                             times_taken.append(
-                                float(line.split("Time taken:")[1].split("s")[0].strip())
+                                float(
+                                    line.split("Time taken:")[1].split("s")[0].strip()
+                                )
                             )
 
             # for new pygsm_output.txt files, print the last 20 lines so wandb captures them
@@ -463,10 +464,14 @@ def launch_tssearch_processes(args: dict, wandb_run_id=None, wandb_kwargs={}):
         # Limit number of reactions if max_samples is specified
         if args.get("max_samples") is not None:
             original_count = len(rxns_confs)
-            rxns_confs = rxns_confs[:args["max_samples"]]
+            rxns_confs = rxns_confs[: args["max_samples"]]
             if len(rxns_confs) < original_count:
-                print(f"Limited reactions from {original_count} to {len(rxns_confs)} due to max_samples setting")
-                logger.info(f"Limited reactions from {original_count} to {len(rxns_confs)} due to max_samples setting")
+                print(
+                    f"Limited reactions from {original_count} to {len(rxns_confs)} due to max_samples setting"
+                )
+                logger.info(
+                    f"Limited reactions from {original_count} to {len(rxns_confs)} due to max_samples setting"
+                )
         thread = min(nprocs, len(rxns_confs))
         input_job_list = []
 
@@ -503,11 +508,13 @@ def launch_tssearch_processes(args: dict, wandb_run_id=None, wandb_kwargs={}):
             delayed(run_gsm_rsprfo_irc)(*task) for task in input_job_list
         )
 
+        num_tsopt_job_false = 0
         tsopt_jobs = {}
         irc_jobs = []
         for job in jobs:
             # (rxn_ind, tsopt_job, irc_job)
             if job[1] is False:
+                num_tsopt_job_false += 1
                 continue
             tsopt_jobs[job[0]] = job[1]
             irc_jobs.append(job[2])
@@ -521,12 +528,15 @@ def launch_tssearch_processes(args: dict, wandb_run_id=None, wandb_kwargs={}):
         analyze_outputs(scratch, irc_jobs, logger, charge=charge)
         logger.info(f"All reaction information is stored in {scratch}/IRC-record.txt")
 
+        print(f"Number of TSOPT jobs that failed: {num_tsopt_job_false}")
+        print(f"Number of IRC jobs: {len(irc_jobs)}")
+
         print("\nAll calculations are done!")
         logger.info("\nAll calculations are done!")
 
         # Stop background monitor after jobs complete
         # wait for 60s to give minitor opportunity to report final metrics
-        time.sleep(60)
+        # time.sleep(60)
         monitor_stop_event.set()
         monitor_thread.join(timeout=20)
 
@@ -549,7 +559,7 @@ def launch_tssearch_processes(args: dict, wandb_run_id=None, wandb_kwargs={}):
             true_ts_autograd = False
             true_ts_predict = False
             run_converged = False
-            for line in lines: #[-80:]:
+            for line in lines:  # [-80:]:
                 if "final Imaginary frequencies" in line:
                     # end point is index-1 saddle point (one imaginary frequency)
                     freq = line.split("[")[1].split("]")[0].split()
@@ -595,7 +605,7 @@ def launch_tssearch_processes(args: dict, wandb_run_id=None, wandb_kwargs={}):
             # This counts how many structures have energies different from the minimum.
             # Since one structure will always be 0 (the lowest energy), having ≥2 non-zero values means:
             # At least 3 distinct energy levels were found (minimum + 2 others)
-            for line in lines: #[-30:]:
+            for line in lines:  # [-30:]:
                 # example line:
                 # Left:   413.21 kJ mol⁻¹ (1 geometry)
                 # TS:   620.89 kJ mol⁻¹ (1 geometry)
@@ -635,8 +645,12 @@ def launch_tssearch_processes(args: dict, wandb_run_id=None, wandb_kwargs={}):
     # ts_final_geometry.xyz
     final_geom_paths = glob(f"{scratch}/*/TSOPT/ts_final_geometry.xyz")
     # initial hessian
-    initial_hessian_autograd_paths = glob(f"{scratch}/*/TSOPT/initial_hessian_autograd.h5")
-    initial_hessian_predict_paths = glob(f"{scratch}/*/TSOPT/initial_hessian_predict.h5")
+    initial_hessian_autograd_paths = glob(
+        f"{scratch}/*/TSOPT/initial_hessian_autograd.h5"
+    )
+    initial_hessian_predict_paths = glob(
+        f"{scratch}/*/TSOPT/initial_hessian_predict.h5"
+    )
     # initial_geometry.xyz
     initial_geom_paths = glob(f"{scratch}/*/*TSguess.xyz")
     assert len(initial_geom_paths) > 0, "No initial geometries found"
@@ -646,27 +660,35 @@ def launch_tssearch_processes(args: dict, wandb_run_id=None, wandb_kwargs={}):
     # final here means after local TS search, but before IRC
     for path in final_hessian_autograd_paths:
         _rxn_ind = path.split("/")[-3]
-        shutil.copy(path, f"{scratch}/ts_geoms_hessians/{_rxn_ind}_final_hessian_autograd.h5")
+        shutil.copy(
+            path, f"{scratch}/ts_geoms_hessians/{_rxn_ind}_final_hessian_autograd.h5"
+        )
     for path in final_hessian_predict_paths:
         _rxn_ind = path.split("/")[-3]
-        shutil.copy(path, f"{scratch}/ts_geoms_hessians/{_rxn_ind}_final_hessian_predict.h5")
+        shutil.copy(
+            path, f"{scratch}/ts_geoms_hessians/{_rxn_ind}_final_hessian_predict.h5"
+        )
     for path in final_geom_paths:
         _rxn_ind = path.split("/")[-3]
-        shutil.copy(
-            path, f"{scratch}/ts_geoms_hessians/{_rxn_ind}_final_geometry.xyz"
-        )
+        shutil.copy(path, f"{scratch}/ts_geoms_hessians/{_rxn_ind}_final_geometry.xyz")
     # initial hessians
     # initial here means before local TS search, but after GSM
     for path in initial_hessian_autograd_paths:
         _rxn_ind = path.split("/")[-3]
-        shutil.copy(path, f"{scratch}/ts_geoms_hessians/{_rxn_ind}_initial_hessian_autograd.h5")
+        shutil.copy(
+            path, f"{scratch}/ts_geoms_hessians/{_rxn_ind}_initial_hessian_autograd.h5"
+        )
     for path in initial_hessian_predict_paths:
         _rxn_ind = path.split("/")[-3]
-        shutil.copy(path, f"{scratch}/ts_geoms_hessians/{_rxn_ind}_initial_hessian_predict.h5")
+        shutil.copy(
+            path, f"{scratch}/ts_geoms_hessians/{_rxn_ind}_initial_hessian_predict.h5"
+        )
     # initial geometries
     for path in initial_geom_paths:
         _rxn_ind = path.split("/")[-2]
-        shutil.copy(path, f"{scratch}/ts_geoms_hessians/{_rxn_ind}_initial_geometry.xyz")
+        shutil.copy(
+            path, f"{scratch}/ts_geoms_hessians/{_rxn_ind}_initial_geometry.xyz"
+        )
     # print size of the directory
     size_dir = os.path.getsize(f"{scratch}/ts_geoms_hessians") / 1024 / 1024 / 1024
     print(f"Size of ts_geoms_hessians directory: {size_dir:.2f} GB")
@@ -864,7 +886,7 @@ def run_gsm_rsprfo_irc(
     tsopt_job.generate_input(
         calctype=f"mlff-{args['calc']}",
         hess=True,
-        hess_step=1,
+        hess_step=1, # Hessian at every step
         calc_kwargs=calc_kwargs,
     )
 
@@ -884,17 +906,18 @@ def run_gsm_rsprfo_irc(
         print(f"TSopt job {tsopt_job.jobname} fails, skip this reaction...")
         logger.info(f"TSopt job {tsopt_job.jobname} fails, skip this reaction...")
         print_error_content(tsopt_job.errlog, logger)
-        return (rxn_ind, False, False)
+        reason = tsopt_job.reason_for_failure
+        return (rxn_ind, False, False, reason)
 
     is_true_ts = tsopt_job.is_true_ts()
-    msg = f"TSopt job {tsopt_job.jobname} is true TS: {is_true_ts}"
-    msg += f" (num_im_freqs={tsopt_job.freq_analysis['num_im_freqs']}"
-    for hessian_method in ["autograd", "predict"]:
-        if hessian_method in tsopt_job.freq_analysis:
-            msg += f", {hessian_method}:{tsopt_job.freq_analysis[hessian_method]}"
-    msg += ")"
-    print(msg)
-    logger.info(msg)
+    # msg = f"TSopt job {tsopt_job.jobname} is true TS: {is_true_ts}"
+    # msg += f" (num_im_freqs={tsopt_job.freq_analysis['num_im_freqs']}"
+    # for hessian_method in ["autograd", "predict"]:
+    #     if hessian_method in tsopt_job.freq_analysis:
+    #         msg += f", {hessian_method}:{tsopt_job.freq_analysis[hessian_method]}"
+    # msg += ")"
+    # print(msg)
+    # logger.info(msg)
 
     # if tsopt_job.is_true_ts() is False:
     #     print(f"TSopt job {tsopt_job.jobname} fails to locate a true transition state, skip this reaction...")
@@ -902,7 +925,7 @@ def run_gsm_rsprfo_irc(
     #     return (rxn_ind, False, False)
 
     strategy = args.get("ts_require", "default")
-    msg = f"TSopt job {tsopt_job.jobname} fails to locate a true transition state, skip this reaction."
+    msg = f"! TSopt job {tsopt_job.jobname} fails to locate a true transition state, skip this reaction {tsopt_job.output}."
     # always do IRC
     if strategy in [None, "None", "none"]:
         pass
@@ -929,7 +952,8 @@ def run_gsm_rsprfo_irc(
         if is_true_ts["default"] is False:
             print(msg)
             logger.info(msg)
-            return (rxn_ind, False, False)
+            # 101: is_true_ts is False
+            return (rxn_ind, False, False, 101)
         elif is_true_ts["default"] is None:
             _msg = "is_true_ts is None! Assuming true?"
             print(_msg)
@@ -967,6 +991,7 @@ def run_gsm_rsprfo_irc(
         calc_kwargs=calc_kwargs,
     )
     if os.path.isfile(f"{tsopt_job.work_folder}/final_hessian.h5"):
+        # print(f"IRC using final_hessian for {tsopt_job.jobname} {tsopt_job.jobtype}")
         irc_job.generate_input(
             calctype=f"mlff-{args['calc']}",
             hess_init=f"{tsopt_job.work_folder}/final_hessian.h5",
@@ -974,7 +999,7 @@ def run_gsm_rsprfo_irc(
         )
     else:
         print(
-            f"IRC did not find final_hessian for {tsopt_job.jobname} {tsopt_job.jobtype}"
+            f"! IRC did not find final_hessian for {tsopt_job.jobname} {tsopt_job.jobtype}"
         )
         irc_job.generate_input(
             calctype=f"mlff-{args['calc']}",
