@@ -594,6 +594,14 @@ def launch_tssearch_processes(args: dict, wandb_run_id=None, wandb_kwargs={}):
         f"Number of successful TS optimizations: {ts_success} ({convert_ts} also converged)"
     )
 
+    num_tsopt_folders = len(glob(f"{scratch}/**/TSOPT", recursive=True))
+    print(f"Number of TSOPT folders in scratch: {num_tsopt_folders}")
+
+    # Count ts_opt.xyz 
+    print("Found", len(glob(f"{scratch}/*/ts_opt.xyz")), "ts_opt.xyz")
+    # Count ts_final_geometry.xyz
+    print("Found", len(glob(f"{scratch}/*/ts_final_geometry.xyz")), "ts_opt.xyz")
+
     # Count successful IRC calculations
     irc_success = 0
     for folder in glob(f"{scratch}/*/IRC"):
@@ -847,8 +855,8 @@ def run_gsm_rsprfo_irc(
         return (rxn_ind, False, False)
 
     if gsm_job.find_correct_TS() is False:
-        print(f"GSM job {gsm_job.jobname} fails to locate a TS, skip this rxn...")
-        logger.info(f"GSM job {gsm_job.jobname} fails to locate a TS, skip this rxn...")
+        print(f"GSM job {gsm_job.jobname} fails to locate a TS guess (highest energy peak), skip this rxn.")
+        logger.info(f"GSM job {gsm_job.jobname} fails to locate a TS guess (highest energy peak), skip this rxn.")
         return (rxn_ind, False, False)
 
     #######################################################
@@ -862,6 +870,8 @@ def run_gsm_rsprfo_irc(
 
     # prepare ts-opt job
     TSE, TSG = gsm_job.get_TS()  # (elements, coordinates)
+    if len(TSG) <= 1:
+        print(f"No TS guess from GSM for {rxn_ind}")
     xyz_write(f"{gsm_job.work_folder}/{gsm_job.jobname}-TSguess.xyz", TSE, TSG)
     work_folder = os.path.join(gsm_job.work_folder, "TSOPT")
 
@@ -925,7 +935,7 @@ def run_gsm_rsprfo_irc(
     #     return (rxn_ind, False, False)
 
     strategy = args.get("ts_require", "default")
-    msg = f"! TSopt job {tsopt_job.jobname} fails to locate a true transition state, skip this reaction {tsopt_job.output}."
+    msg = f"! TSopt job {tsopt_job.jobname} fails to locate a true transition state, skip this reaction. \n  {is_true_ts}. \n  {tsopt_job.output}."
     # always do IRC
     if strategy in [None, "None", "none"]:
         pass
@@ -955,15 +965,13 @@ def run_gsm_rsprfo_irc(
             # 101: is_true_ts is False
             return (rxn_ind, False, False, 101)
         elif is_true_ts["default"] is None:
-            _msg = "is_true_ts is None! Assuming true?"
+            _msg = "! is_true_ts is None! Assuming true?"
             print(_msg)
             logger.info(_msg)
     # only the autograd hessian method must be true
     elif strategy == "autograd":
         if is_true_ts["autograd"] is False:
-            msg = f"TSopt job {tsopt_job.jobname} fails to locate a true transition state, skip this reaction."
-        msg = f"TSopt job {tsopt_job.jobname} fails to locate a true transition state, skip this reaction."
-        return (rxn_ind, False, False)
+            return (rxn_ind, False, False)
     else:
         raise ValueError(f"Invalid ts_require strategy: {strategy}")
 
@@ -972,9 +980,12 @@ def run_gsm_rsprfo_irc(
     #######################################################
 
     # prepare irc job
-    TSE, TSG = tsopt_job.get_final_ts()
-    xyz_write(f"{tsopt_job.work_folder}/{tsopt_job.jobname}-TS.xyz", TSE, TSG)
-    work_folder = tsopt_job.work_folder.replace("TSOPT", "IRC")
+    # Returns ts_opt.xyz if it finds it, then tries ts_final_geometry.xyz, then nothing
+    # dependencies/pysisyphus/pysisyphus/run.py calls run_opt() in
+    # dependencies/pysisyphus/pysisyphus/drivers/opt.py
+    TSE, TSG = tsopt_job.get_final_ts() # elements, geometry
+    xyz_write(f"{tsopt_job.work_folder}/{tsopt_job.jobname}-TS.xyz", elements=TSE, geo=TSG)
+    irc_work_folder = tsopt_job.work_folder.replace("TSOPT", "IRC")
     calc_kwargs = {
         "device": args["device"],
         "ckpt_path": args["ckpt_path"],
@@ -983,7 +994,7 @@ def run_gsm_rsprfo_irc(
     }
     irc_job = PYSIS(
         input_geo=f"{tsopt_job.work_folder}/{tsopt_job.jobname}-TS.xyz",
-        work_folder=work_folder,
+        work_folder=irc_work_folder,
         restart=args["pysis_restart"],
         jobname=tsopt_job.jobname,
         jobtype="irc",
@@ -1021,7 +1032,7 @@ def run_gsm_rsprfo_irc(
             and d not in ["init_rxns", "scratch"]
         ]
     )
-    print(f"{completed_irc} jobs finished")
+    print(f"Finished {rxn_ind}. {completed_irc} jobs finished or in progress.")
     if wandb.run is not None:
         wandb.log({"completed_irc": completed_irc})
 

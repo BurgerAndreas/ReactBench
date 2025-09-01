@@ -547,6 +547,7 @@ class PYSIS:
         self.freq_analysis = {"num_im_freqs": f"self.output {self.output} not found"}
         _is_true_ts = {"default": None}
         found_img_freqs = False
+        _is_true_ts_neg_num = None
 
         # lines are written in
         # dependencies/pysisyphus/pysisyphus/helpers.py do_final_hessian()
@@ -555,13 +556,16 @@ class PYSIS:
             for line in reversed(lines):
                 # final Imaginary frequencies: [-1096.87] cm⁻¹
                 # final neg_num: 1
-                if "Imaginary frequencies:" in line:
+                if "final Imaginary frequencies:" in line:
                     found_img_freqs = True
                     freqs = [float(x) for x in re.findall(r"-?\d+\.?\d*", line)]
                     self.freq_analysis["num_im_freqs"] = len(freqs)
                     _is_true_ts["default"] = (len(freqs) == 1) and (
                         freqs[0] < max_img_freq
                     )
+                if "final neg_num:" in line:
+                    neg_num = int(line.split("final neg_num: ")[1])
+                    _is_true_ts_neg_num = (neg_num == 1)
                 for hessian_method in ["autograd", "predict"]:
                     if f"{hessian_method} img freqs:" in line:
                         freqs = [float(x) for x in re.findall(r"-?\d+\.?\d*", line)]
@@ -571,6 +575,8 @@ class PYSIS:
                         )
         if found_img_freqs is False:
             print(f"! pysis {self.jobname} did not find any imaginary frequencies in {self.output}")
+        if _is_true_ts_neg_num != _is_true_ts["default"]:
+            print(f"! pysis {self.jobname} found different neg_num for default and {hessian_method} in {self.output}")
 
         return _is_true_ts
 
@@ -620,6 +626,7 @@ class PYSIS:
 
     def get_final_ts(self):
         """Get the final transition state geometry.
+        Returns ts_opt.xyz if it finds it, then tries ts_final_geometry.xyz, then nothing
 
         Returns:
             tuple: (elements, coordinates) if successful, (False, []) otherwise
@@ -632,6 +639,8 @@ class PYSIS:
         for ts_file in ts_files:
             if os.path.exists(ts_file):
                 return xyz_parse(ts_file)
+        
+        print(f"! Could not find ts_opt.xyz or ts_final_geometry.xyz in {self.work_folder}")
 
         return False, []
 

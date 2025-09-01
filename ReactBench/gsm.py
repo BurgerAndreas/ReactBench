@@ -316,9 +316,11 @@ class PYGSM:
                 break
 
         if len(energies) < 5:
+            print(f"! find_correct_TS there are less than 5 energies in {self.output}")
             return False
 
         if max(energies) > 1000:
+            print(f"! find_correct_TS the max energy is greater than 1000 in {self.output}")
             return False
 
         peaks = []
@@ -337,12 +339,14 @@ class PYGSM:
 
         # check and return peak
         if not peaks:
+            print(f"! find_correct_TS there are no peaks in {energies} {self.output}")
             return False
 
         if len(peaks) == 1:
             return peaks[0]
         else:
             if tight:
+                print(f"! find_correct_TS there are multiple peaks in {energies} {self.output}")
                 return False
             else:
                 # Find the peak with the maximum energy

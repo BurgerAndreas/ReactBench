@@ -29,8 +29,8 @@ uv run scripts/plot_frequency_analysis.py
 # Speed and memory comparison (plot included)
 # ~1h
 cd ../gad-ff
-uv run scripts/speed_comparison.py speed --dataset RGD1.lmdb --max_samples_per_n 100 --ckpt_path ../ReactBench/ckpt/hesspred/eqv2hp1.ckpt
-uv run scripts/speed_comparison.py speed --dataset ts1x-val.lmdb --max_samples_per_n 100
+uv run scripts/speed_comparison.py speed --dataset RGD1.lmdb --max_samples_per_n 10 --ckpt_path ../ReactBench/ckpt/hesspred/eqv2hp1.ckpt
+uv run scripts/speed_comparison_incltransform.py --dataset RGD1.lmdb --max_samples_per_n 10 --ckpt_path ../ReactBench/ckpt/hesspred/eqv2hp1.ckpt
 
 # ~24h
 # has to be before compare_hessian_to_dft.py, since it saves Hessians and geometry xyz files
