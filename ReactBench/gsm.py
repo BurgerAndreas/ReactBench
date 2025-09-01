@@ -298,7 +298,8 @@ class PYGSM:
     def find_correct_TS(self, tight=True) -> int:
         """Find the transition state node index.
         Inputs:
-            Tight: Only if only one peak is found, return this geometry as TS
+            Tight: Only if only one peak is found, return this geometry as TS.
+            Comment Andreas: does not work well. Recommended to set to False!
 
         Returns:
             int: Index of transition state node, or False if not found

@@ -854,7 +854,9 @@ def run_gsm_rsprfo_irc(
         print_error_content(gsm_job.errlog, logger)
         return (rxn_ind, False, False)
 
-    if gsm_job.find_correct_TS() is False:
+    # Comment Andreas: tight does not work well. Recommended to set tight=False!
+    # Keeping it at tight=True for compatibility with original ReactBench implementation.
+    if gsm_job.find_correct_TS(tight=True) is False:
         print(f"GSM job {gsm_job.jobname} fails to locate a TS guess (highest energy peak), skip this rxn.")
         logger.info(f"GSM job {gsm_job.jobname} fails to locate a TS guess (highest energy peak), skip this rxn.")
         return (rxn_ind, False, False)
@@ -965,9 +967,10 @@ def run_gsm_rsprfo_irc(
             # 101: is_true_ts is False
             return (rxn_ind, False, False, 101)
         elif is_true_ts["default"] is None:
-            _msg = "! is_true_ts is None! Assuming true?"
+            _msg = f"! is_true_ts is None! Assuming false {tsopt_job.output}"
             print(_msg)
             logger.info(_msg)
+            return (rxn_ind, False, False, 103)
     # only the autograd hessian method must be true
     elif strategy == "autograd":
         if is_true_ts["autograd"] is False:

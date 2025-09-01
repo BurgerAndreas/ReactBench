@@ -18,7 +18,7 @@ source .venv/bin/activate
 
 # ~24h
 # has to be before compare_hessian_to_dft.py, since it saves Hessians and geometry xyz files
-# cd ../ReactBench
+cd ../ReactBench
 uv run ReactBench/main.py config.yaml --calc=equiformer --hessian_method=autograd --config_path=null # --redo_all=True
 uv run ReactBench/main.py config.yaml --calc=equiformer --ckpt_path=$HPCKPT --hessian_method=predict 
 uv run ReactBench/main.py config.yaml --calc=leftnet --hessian_method=autograd --config_path=null --ckpt_path=/ssd/Code/ReactBench/ckpt/horm/left.ckpt #--redo_all=True
