@@ -1,15 +1,14 @@
 import torch
-from torch import Tensor
 from typing import Optional
 
 
 def _get_derivatives_not_none(
-    x: Tensor,
-    y: Tensor,
+    x: torch.Tensor,
+    y: torch.Tensor,
     retain_graph: Optional[bool] = None,
     create_graph: bool = False,
     allow_unused: bool = False,
-) -> Tensor:
+) -> torch.Tensor:
     ret = torch.autograd.grad(
         [y.sum()],
         [x],

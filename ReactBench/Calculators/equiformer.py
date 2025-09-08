@@ -1,4 +1,3 @@
-from pysisyphus.constants import AU2EV, BOHR2ANG
 import os
 import torch
 import yaml
@@ -9,6 +8,7 @@ import numpy as np
 from numpy.typing import NDArray
 
 from ReactBench.Calculators._utils import compute_hessian
+from pysisyphus.constants import AU2EV, BOHR2ANG
 from pysisyphus.calculators.Calculator import Calculator as PysisCalculator
 
 # Import required modules for Equiformer
@@ -311,6 +311,7 @@ class EquiformerMLFF:
                 hessian = out["hessian"]
             self.model.cnt_hessian_predict += 1
             self.cnt_hessian_predict += 1
+            
         else:
             raise ValueError(f"Invalid hessian method: {hessian_method}")
 

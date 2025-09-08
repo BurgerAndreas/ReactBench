@@ -18,7 +18,7 @@ uv run scripts/eval_horm.py --ckpt_path=$HPCKPT --hessian_method=predict --max_s
 
 # ~24h
 # has to be before compare_hessian_to_dft.py, since it saves Hessians and geometry xyz files
-# cd ../ReactBench
+cd ../ReactBench
 # uv run ReactBench/main.py config.yaml --calc=equiformer --hessian_method=autograd --config_path=null --only_cnt_results=True # --redo_all=True
 # uv run ReactBench/main.py config.yaml --calc=equiformer --ckpt_path=$HPCKPT --hessian_method=predict --only_cnt_results=True 
 # uv run ReactBench/main.py config.yaml --calc=leftnet --hessian_method=autograd --config_path=null --ckpt_path=/ssd/Code/ReactBench/ckpt/horm/left.ckpt --only_cnt_results=True  #--redo_all=True
@@ -28,6 +28,7 @@ uv run ReactBench/main.py config.yaml --calc=leftnet-d --hessian_method=autograd
 
 
 # uv run scripts/speed_comparison.py --dataset RGD1.lmdb --max_samples_per_n 10 --ckpt_path ../ReactBench/ckpt/hesspred/eqv2hp1.ckpt
+uv run scripts/speed_comparison.py --dataset RGD1.lmdb --max_samples_per_n 100 --ckpt_path ../ReactBench/ckpt/hesspred/eqv2hp1.ckpt
 # uv run scripts/speed_comparison_incltransform.py --dataset RGD1.lmdb --max_samples_per_n 10 --ckpt_path ../ReactBench/ckpt/hesspred/eqv2hp1.ckpt
 
 
