@@ -278,8 +278,10 @@ def compare_hessians(
             f"Reaction index mismatch at {i}: {rxn_ind} != {rxn_ind_dft}"
         )
 
-        # eigenvalues, wavenumbers, negative eigenvalues, number of negative eigenvalues
+        # neigenvalues, wavenumbers, negative eigenvalues, number of negative eigenvalues
         # of Eckart-projection of mass-weighted hessian
+        # "natoms": dft_freqs["natoms"],
+        # "dft_nneg": dft_freqs["neg_num"],
         dft_freqs = analyze_frequencies_pysisyphus(
             hess_dft, xyz_path=geo, debug_hint=f"DFT {rxn_ind}"
         )
@@ -631,7 +633,9 @@ if __name__ == "__main__":
     parser.add_argument(
         "inp_path",
         type=str,
-        default="equiformer_alldatagputwoalphadrop0droppathrate0projdrop0",
+        # default="equiformer_alldatagputwoalphadrop0droppathrate0projdrop0",
+        # /ssd/Code/ReactBench/runs/equiformer_hesspredhesspredalldatanumlayershessian3presetluca8w10onlybz128-581483-20250826-074746_ts1x_predict
+        default="equiformer_hesspredhesspredalldatanumlayershessian3presetluca8w10onlybz128",
         help="Path to the input XYZ geometries.",
     )
     parser.add_argument(
@@ -682,6 +686,7 @@ if __name__ == "__main__":
             inp_path = _path[0]
         else:
             raise ValueError(f"No or multiple runs found for {inp_path}: {_path}")
+    print(f"Input path: {inp_path}")
     args.inp_path = os.path.abspath(inp_path)
 
     runname = args.inp_path.split("/")[-2]

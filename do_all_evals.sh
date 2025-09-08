@@ -30,7 +30,7 @@ uv run scripts/plot_frequency_analysis.py
 # ~1h
 cd ../gad-ff
 uv run scripts/speed_comparison.py speed --dataset RGD1.lmdb --max_samples_per_n 10 --ckpt_path ../ReactBench/ckpt/hesspred/eqv2hp1.ckpt
-uv run scripts/speed_comparison_incltransform.py --dataset RGD1.lmdb --max_samples_per_n 10 --ckpt_path ../ReactBench/ckpt/hesspred/eqv2hp1.ckpt
+# uv run scripts/speed_comparison_incltransform.py --dataset RGD1.lmdb --max_samples_per_n 10 --ckpt_path ../ReactBench/ckpt/hesspred/eqv2hp1.ckpt
 
 # ~24h
 # has to be before compare_hessian_to_dft.py, since it saves Hessians and geometry xyz files
@@ -40,12 +40,28 @@ uv run ReactBench/main.py config.yaml --calc=equiformer --ckpt_path=$HPCKPT --he
 
 # plot
 
-# ~3h
+# deprecated
+# cd ../ReactBench
+# uv run compare_hessian_to_dft.py equiformer_alldatagputwoalphadrop0droppathrate0projdrop0 --which final --redo True
+# uv run compare_hessian_to_dft.py equiformer_alldatagputwoalphadrop0droppathrate0projdrop0 --which initial --redo True
+
 cd ../ReactBench
-uv run compare_hessian_to_dft.py equiformer_alldatagputwoalphadrop0droppathrate0projdrop0 --which final --redo True
-uv run compare_hessian_to_dft.py equiformer_alldatagputwoalphadrop0droppathrate0projdrop0 --which initial --redo True
+# # /ssd/Code/ReactBench/runs/leftnet-d_hormleft-df_ts1x_autograd/ts_proposal_geoms
+# uv run verify_ts_with_dft.py leftnet-d_hormleft-df --hessian_method autograd #--max_samples 80
+# # /ssd/Code/ReactBench/runs/leftnet_hormleft_ts1x_autograd/ts_proposal_geoms
+# uv run verify_ts_with_dft.py leftnet_hormleft --hessian_method autograd #--max_samples 80
+# /ssd/Code/ReactBench/runs/equiformer_hesspredhesspredalldatanumlayershessian3presetluca8w10onlybz128-581483-20250826-074746_ts1x_predict/ts_proposal_geoms
+uv run verify_ts_with_dft.py equiformer_hesspred --max_samples 100
+# /ssd/Code/ReactBench/runs/equiformer_ts1x_autograd
+uv run verify_ts_with_dft.py /ssd/Code/ReactBench/runs/equiformer_ts1x_autograd --hessian_method autograd --max_samples 100
+# plot
+uv run verify_ts_with_dft.py plot
+
+# lollipop plots for TS workflow
+uv run scripts/plot_reactbench.py
 
 cd ../gad-ff
+# uv run scripts/compute_dft_hessian_t1x.py --noiserms 0.03
 # --redo True
 uv run scripts/second_order_relaxation_pysiyphus.py --max_samples 30--xyz t1x --thresh gau
 uv run scripts/second_order_relaxation_pysiyphus.py --max_samples 30--xyz t1x --thresh gau_loose

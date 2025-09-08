@@ -546,6 +546,8 @@ def launch_tssearch_processes(args: dict, wandb_run_id=None, wandb_kwargs={}):
     print(f"Number of successful GSM calculations: {gsm_success}")
 
     # Count successful TS optimizations
+    idx_rfo_converged_true_ts = []
+    geom_path_rfo_converged_true_ts = []
     ts_success = 0
     ts_success_autograd = 0
     ts_success_predict = 0
@@ -553,7 +555,9 @@ def launch_tssearch_processes(args: dict, wandb_run_id=None, wandb_kwargs={}):
     convert_ts = 0  # local TS search converged and found an index-1 saddle point (one imaginary frequency)
     converged_ts = 0  # local TS search converged
     for folder in glob(f"{scratch}/*/TSOPT"):
+        # rxn9/TSOPT/pysis_tsopt_output.txt
         with open(os.path.join(folder, "pysis_tsopt_output.txt"), "r") as f:
+            _rxn_ind = folder.split("/")[-2]
             lines = f.readlines()
             true_ts = False
             true_ts_autograd = False
@@ -589,7 +593,12 @@ def launch_tssearch_processes(args: dict, wandb_run_id=None, wandb_kwargs={}):
         if true_ts and run_converged:
             # local TS search converged and found an index-1 saddle point (one imaginary frequency)
             convert_ts += 1
-
+            idx_rfo_converged_true_ts.append(_rxn_ind)
+            # ts_opt.xyz or ts_final_geometry.xyz? Save both for now
+            geom_path_rfo_converged_true_ts.append(
+                os.path.join(folder, "ts_final_geometry.xyz")
+            )
+            geom_path_rfo_converged_true_ts.append(os.path.join(folder, "ts_opt.xyz"))
     print(
         f"Number of successful TS optimizations: {ts_success} ({convert_ts} also converged)"
     )
@@ -597,7 +606,7 @@ def launch_tssearch_processes(args: dict, wandb_run_id=None, wandb_kwargs={}):
     num_tsopt_folders = len(glob(f"{scratch}/**/TSOPT", recursive=True))
     print(f"Number of TSOPT folders in scratch: {num_tsopt_folders}")
 
-    # Count ts_opt.xyz 
+    # Count ts_opt.xyz
     print("Found", len(glob(f"{scratch}/*/ts_opt.xyz")), "ts_opt.xyz")
     # Count ts_final_geometry.xyz
     print("Found", len(glob(f"{scratch}/*/ts_final_geometry.xyz")), "ts_opt.xyz")
@@ -700,6 +709,17 @@ def launch_tssearch_processes(args: dict, wandb_run_id=None, wandb_kwargs={}):
     # print size of the directory
     size_dir = os.path.getsize(f"{scratch}/ts_geoms_hessians") / 1024 / 1024 / 1024
     print(f"Size of ts_geoms_hessians directory: {size_dir:.2f} GB")
+
+    # make another directory and save the ts_opt.xyz and ts_final_geometry.xyz
+    _proposals_dir = f"{scratch}/ts_proposal_geoms"
+    os.makedirs(_proposals_dir, exist_ok=True)
+    for path in geom_path_rfo_converged_true_ts:
+        _file_name = path.split("/")[-1]
+        _rxn_ind = path.split("/")[-3]
+        shutil.copy(path, f"{_proposals_dir}/{_rxn_ind}_{_file_name}")
+    print(
+        f"Copied {len(geom_path_rfo_converged_true_ts)} ts_proposal_geoms to {_proposals_dir}"
+    )
 
     # summarize into a dictionary
     ts_success_dict = {
@@ -857,8 +877,12 @@ def run_gsm_rsprfo_irc(
     # Comment Andreas: tight does not work well. Recommended to set tight=False!
     # Keeping it at tight=True for compatibility with original ReactBench implementation.
     if gsm_job.find_correct_TS(tight=True) is False:
-        print(f"GSM job {gsm_job.jobname} fails to locate a TS guess (highest energy peak), skip this rxn.")
-        logger.info(f"GSM job {gsm_job.jobname} fails to locate a TS guess (highest energy peak), skip this rxn.")
+        print(
+            f"GSM job {gsm_job.jobname} fails to locate a TS guess (highest energy peak), skip this rxn."
+        )
+        logger.info(
+            f"GSM job {gsm_job.jobname} fails to locate a TS guess (highest energy peak), skip this rxn."
+        )
         return (rxn_ind, False, False)
 
     #######################################################
@@ -898,7 +922,7 @@ def run_gsm_rsprfo_irc(
     tsopt_job.generate_input(
         calctype=f"mlff-{args['calc']}",
         hess=True,
-        hess_step=1, # Hessian at every step
+        hess_step=1,  # Hessian at every step
         calc_kwargs=calc_kwargs,
     )
 
@@ -967,6 +991,7 @@ def run_gsm_rsprfo_irc(
             # 101: is_true_ts is False
             return (rxn_ind, False, False, 101)
         elif is_true_ts["default"] is None:
+            # happens when there are no imaginary frequencies
             _msg = f"! is_true_ts is None! Assuming false {tsopt_job.output}"
             print(_msg)
             logger.info(_msg)
@@ -986,8 +1011,10 @@ def run_gsm_rsprfo_irc(
     # Returns ts_opt.xyz if it finds it, then tries ts_final_geometry.xyz, then nothing
     # dependencies/pysisyphus/pysisyphus/run.py calls run_opt() in
     # dependencies/pysisyphus/pysisyphus/drivers/opt.py
-    TSE, TSG = tsopt_job.get_final_ts() # elements, geometry
-    xyz_write(f"{tsopt_job.work_folder}/{tsopt_job.jobname}-TS.xyz", elements=TSE, geo=TSG)
+    TSE, TSG = tsopt_job.get_final_ts()  # elements, geometry
+    xyz_write(
+        f"{tsopt_job.work_folder}/{tsopt_job.jobname}-TS.xyz", elements=TSE, geo=TSG
+    )
     irc_work_folder = tsopt_job.work_folder.replace("TSOPT", "IRC")
     calc_kwargs = {
         "device": args["device"],

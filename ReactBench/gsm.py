@@ -107,7 +107,7 @@ class PYGSM:
 
         self.command = " ".join(cmd_parts)
         # print("Command: \n", self.command)
-        self.reason_for_failure = 0 # no failure
+        self.reason_for_failure = 0  # no failure
 
     def prepare_job(self):
         """Prepare GSM job by setting up working directory and input files."""
@@ -244,15 +244,15 @@ class PYGSM:
             bool: True if calculation completed successfully, False otherwise
         """
         if not os.path.isfile(self.output):
-            self.reason_for_failure = 404 # output file not found
+            self.reason_for_failure = 404  # output file not found
             return False
 
         with open(self.output, "r", encoding="utf-8") as f:
             for line in reversed(f.readlines()):
                 if "Finished GSM!" in line:
                     return True
-        
-        self.reason_for_failure = 100 # unknown reason
+
+        self.reason_for_failure = 100  # unknown reason
         return False
 
     def read_error_content(self) -> str:
@@ -321,7 +321,9 @@ class PYGSM:
             return False
 
         if max(energies) > 1000:
-            print(f"! find_correct_TS the max energy is greater than 1000 in {self.output}")
+            print(
+                f"! find_correct_TS the max energy is greater than 1000 in {self.output}"
+            )
             return False
 
         peaks = []
@@ -347,7 +349,9 @@ class PYGSM:
             return peaks[0]
         else:
             if tight:
-                print(f"! find_correct_TS there are multiple peaks in {energies} {self.output}")
+                print(
+                    f"! find_correct_TS there are multiple peaks in {energies} {self.output}"
+                )
                 return False
             else:
                 # Find the peak with the maximum energy

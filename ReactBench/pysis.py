@@ -143,7 +143,7 @@ class PYSIS:
         )
         # print(f"pysis {self.jobname} created input file: {self.pysis_input}")
 
-        self.reason_for_failure = 0 # no failure
+        self.reason_for_failure = 0  # no failure
 
     def generate_calculator_settings(self, calctype="mlff-leftnet", calc_kwargs={}):
         """Generate calculator-specific settings for the input file.
@@ -457,7 +457,7 @@ class PYSIS:
             bool: True if calculation completed successfully, False otherwise
         """
         if not os.path.isfile(self.output):
-            self.reason_for_failure = 404 # output file not found
+            self.reason_for_failure = 404  # output file not found
             return False
 
         with open(self.output, "r", encoding="utf-8") as f:
@@ -465,7 +465,6 @@ class PYSIS:
             for line in reversed(lines):
                 if "pysisyphus run took" in line:
                     return True
-                    
 
         with open(self.output, "r", encoding="utf-8") as f:
             out = "".join(f.readlines()[-20:])
@@ -479,7 +478,7 @@ class PYSIS:
             + "<" * 40
         )
 
-        self.reason_for_failure = 100 # unknown reason
+        self.reason_for_failure = 100  # unknown reason
         return False
 
     def optimization_converged(self) -> bool:
@@ -541,7 +540,9 @@ class PYSIS:
             return False
 
         if not self.calculation_terminated_normally():
-            print(f"! pysis {self.jobname} calculation did not terminate normally: {self.output}")
+            print(
+                f"! pysis {self.jobname} calculation did not terminate normally: {self.output}"
+            )
             return False
 
         self.freq_analysis = {"num_im_freqs": f"self.output {self.output} not found"}
@@ -565,7 +566,7 @@ class PYSIS:
                     )
                 if "final neg_num:" in line:
                     neg_num = int(line.split("final neg_num: ")[1])
-                    _is_true_ts_neg_num = (neg_num == 1)
+                    _is_true_ts_neg_num = neg_num == 1
                 for hessian_method in ["autograd", "predict"]:
                     if f"{hessian_method} img freqs:" in line:
                         freqs = [float(x) for x in re.findall(r"-?\d+\.?\d*", line)]
@@ -574,9 +575,13 @@ class PYSIS:
                             freqs[0] < max_img_freq
                         )
         if found_img_freqs is False:
-            print(f"! pysis {self.jobname} did not find any imaginary frequencies in {self.output}")
+            print(
+                f"! pysis {self.jobname} did not find any imaginary frequencies in {self.output}"
+            )
         if _is_true_ts_neg_num != _is_true_ts["default"]:
-            print(f"! pysis {self.jobname} found different neg_num for default and {hessian_method} in {self.output}")
+            print(
+                f"! pysis {self.jobname} found different neg_num for default and {hessian_method} in {self.output}"
+            )
 
         return _is_true_ts
 
@@ -639,8 +644,10 @@ class PYSIS:
         for ts_file in ts_files:
             if os.path.exists(ts_file):
                 return xyz_parse(ts_file)
-        
-        print(f"! Could not find ts_opt.xyz or ts_final_geometry.xyz in {self.work_folder}")
+
+        print(
+            f"! Could not find ts_opt.xyz or ts_final_geometry.xyz in {self.work_folder}"
+        )
 
         return False, []
 

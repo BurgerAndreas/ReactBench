@@ -65,7 +65,9 @@ def analyze_outputs(
            working_folder -- output files, including IRC_record.txt, selected_tss.txt, will be stored in this folder
            irc_job_list -- a list of irc jobs
     """
-    print(f"\n{__file__}: analyzing outputs got {len(irc_job_list)} IRC jobs for working_folder {working_folder}")
+    print(
+        f"\n{__file__}: analyzing outputs got {len(irc_job_list)} IRC jobs for working_folder {working_folder}"
+    )
 
     # initialize output dictionary
     reactions = dict()

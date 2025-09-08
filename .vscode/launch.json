@@ -13,12 +13,20 @@
             "args": "config.yaml --calc=equiformer --ckpt_path=/ssd/Code/gad-ff/ckpt/horm/eqv2.ckpt --inp_path=data"
         },
         {
+            "name": "Current File",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal",
+            // "args": "${command:pickArgs}"
+        },
+        {
             "name": "Python Debugger: Current File with Arguments",
             "type": "debugpy",
             "request": "launch",
             "program": "${file}",
             "console": "integratedTerminal",
             "args": "${command:pickArgs}"
-        }
+        },
     ]
 }

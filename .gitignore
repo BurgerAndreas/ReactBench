@@ -6,6 +6,7 @@ dependencies/
 launch.json
 .vscode/
 
+*.png
 
 *.h5
 *.xyz
@@ -27,7 +28,7 @@ scratch/
 runs/
 outputs/
 dftruns/
-runs_*/
+# runs_*/
 results/
 
 **/_version.py
