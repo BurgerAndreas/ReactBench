@@ -164,6 +164,83 @@ def parse_pysis_output(pysistsopt_output_files):
     )
 
 
+# Parse TSOPT optimizer cycles from TSOPT output files
+def parse_tsopt_cycles(tsopt_output_files):
+    cycles = []
+    for fn in tsopt_output_files:
+        try:
+            with open(fn, "r", encoding="utf-8", errors="ignore") as handle:
+                for line in handle:
+                    if "Cycles taken:" in line:
+                        try:
+                            cycles.append(int(line.split("Cycles taken:")[1].strip()))
+                        except Exception:
+                            pass
+        except Exception:
+            continue
+
+    return {
+        "tsopt_cycles_found": len(cycles),
+        "tsopt_cycles_mean": float(np.mean(cycles)) if len(cycles) > 0 else 0.0,
+    }
+
+
+# Parse IRC end-optimization cycles from IRC output files
+def parse_irc_endopt_cycles(irc_output_files):
+    forward_cycles = []
+    backward_cycles = []
+    for fn in irc_output_files:
+        with open(fn, "r", encoding="utf-8", errors="ignore") as handle:
+            lines = handle.readlines()
+
+        section = None  # "forward" | "backward" | None
+        for line in lines:
+            if "RUNNING FORWARD_END OPTIMIZATION" in line:
+                section = "forward"
+                continue
+            if "RUNNING BACKWARD_END OPTIMIZATION" in line:
+                section = "backward"
+                continue
+            if "RFOptimizer Cycles taken:" in line:
+                cycles = int(line.split("Cycles taken:")[1].strip())
+                if section == "forward":
+                    forward_cycles.append(cycles)
+                elif section == "backward":
+                    backward_cycles.append(cycles)
+
+    stats = {
+        "irc_forward_end_cycles_found": len(forward_cycles),
+        "irc_backward_end_cycles_found": len(backward_cycles),
+        # "irc_forward_end_cycles_sum": int(np.sum(forward_cycles)) if len(forward_cycles) > 0 else 0,
+        # "irc_backward_end_cycles_sum": int(np.sum(backward_cycles)) if len(backward_cycles) > 0 else 0,
+        "irc_forward_end_cycles_mean": float(np.mean(forward_cycles)) if len(forward_cycles) > 0 else 0.0,
+        "irc_backward_end_cycles_mean": float(np.mean(backward_cycles)) if len(backward_cycles) > 0 else 0.0,
+    }
+    return stats
+
+
+# Parse IRC forward/backward cycles directly from IRC output
+def parse_irc_cycles(irc_output_files):
+    forward_cycles = []
+    backward_cycles = []
+    for fn in irc_output_files:
+        with open(fn, "r", encoding="utf-8", errors="ignore") as handle:
+            for line in handle:
+                if "IRC forward Cycles taken:" in line:
+                    cycles = int(line.split("IRC forward Cycles taken:")[1].strip())
+                    forward_cycles.append(cycles)
+                elif "IRC backward Cycles taken:" in line:
+                    cycles = int(line.split("IRC backward Cycles taken:")[1].strip())
+                    backward_cycles.append(cycles)
+
+    return {
+        "irc_forward_cycles_found": len(forward_cycles),
+        "irc_backward_cycles_found": len(backward_cycles),
+        "irc_forward_cycles_mean": float(np.mean(forward_cycles)) if len(forward_cycles) > 0 else 0.0,
+        "irc_backward_cycles_mean": float(np.mean(backward_cycles)) if len(backward_cycles) > 0 else 0.0,
+    }
+
+
 # Background monitor: periodically read result files and log to wandb
 def _monitor_results_periodically(
     scratch_dir: str,
@@ -737,6 +814,17 @@ def launch_tssearch_processes(args: dict, wandb_run_id=None, wandb_kwargs={}):
         "num_geom_files": len(final_geom_paths),
         "size_ts_geoms_hessians": size_dir,
     }
+    # Add IRC end-optimization cycle statistics
+    irc_output_files = glob(f"{scratch}/*/IRC/pysis_irc_output.txt")
+    irc_endopt_stats = parse_irc_endopt_cycles(irc_output_files)
+    ts_success_dict.update(irc_endopt_stats)
+    # Add IRC cycles (forward/backward) if present in outputs
+    irc_cycle_stats = parse_irc_cycles(irc_output_files)
+    ts_success_dict.update(irc_cycle_stats)
+    # Add TSOPT cycles statistics
+    tsopt_output_files = glob(f"{scratch}/*/TSOPT/pysis_tsopt_output.txt")
+    tsopt_cycle_stats = parse_tsopt_cycles(tsopt_output_files)
+    ts_success_dict.update(tsopt_cycle_stats)
     pysistsopt_output_files = glob(f"{scratch}/*/TSOPT/pysis_tsopt_output.txt")
     pysis_outs = parse_pysis_output(pysistsopt_output_files)
     for k, v in pysis_outs.items():
