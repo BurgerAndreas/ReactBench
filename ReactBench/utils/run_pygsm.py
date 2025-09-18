@@ -30,7 +30,7 @@ from pyGSM.potential_energy_surfaces import PES
 from pyGSM.utilities import nifty, manage_xyz
 from pyGSM.utilities.elements import ElementData
 from pyGSM.molecule import Molecule
-from pyGSM.utilities.cli_utils import plot
+from pyGSM.utilities.cli_utils import plot_energy_nodes
 
 
 from ReactBench.Calculators import get_calculator, AVAILABLE_CALCULATORS
@@ -585,7 +585,7 @@ def gsm_to_ase_atoms(gsm: DE_GSM):
 
 
 def post_processing(gsm, analyze_ICs=False, have_TS=True):
-    plot(fx=gsm.energies, x=range(len(gsm.energies)), title=gsm.ID)
+    # plot_energy_nodes(fx=gsm.energies, x=range(len(gsm.energies)), title=gsm.ID)
 
     ICs = []
     ICs.append(gsm.nodes[0].primitive_internal_coordinates)
@@ -631,6 +631,7 @@ def post_processing(gsm, analyze_ICs=False, have_TS=True):
             )
             for x in zip(*ICs):
                 f.write("{0}\t{1}\t{2}\n".format(*x))
+        print("Saved IC_data_{}.txt".format(gsm.ID))
 
     # Delta E
     deltaE = gsm.energies[minnodeP] - gsm.energies[minnodeR]

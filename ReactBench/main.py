@@ -31,6 +31,27 @@ from ReactBench.gsm import PYGSM
 
 import traceback
 
+"""Horrible database and poor benchmark.
+Avoid using.
+
+GSM will create:
+- rxn<id>:
+    - scratch/
+        - pygsm_output.txt
+        - pygsm_err_msg.txt
+    - <id>-TSguess.xyz # main.py
+    - TSnode_<>.xyz # ReactBench/run_pygsm.py wrapper_de_gsm
+
+Local RS-P-RFO will create:
+- rxn<id>/
+    - TSOPT/
+
+IRC will create:
+- rxn<id>/
+    - IRC/
+- IRC-record.txt
+"""
+
 
 class DummyLogger:
     def __init__(self, *args, **kwargs):
@@ -1094,6 +1115,11 @@ def run_gsm_rsprfo_irc(
     #######################################################
     # IRC
     #######################################################
+
+    # Optionally skip IRC if requested
+    if not args.get("do_irc", True):
+        print(f"Skipping IRC for {tsopt_job.jobname} due to do_irc=False")
+        return (rxn_ind, tsopt_job, False)
 
     # prepare irc job
     # Returns ts_opt.xyz if it finds it, then tries ts_final_geometry.xyz, then nothing

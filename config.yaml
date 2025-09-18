@@ -35,6 +35,7 @@ redo_all: false
 redo_gsm: false 
 redo_opt: false
 redo_irc: false
+do_irc: true
 only_cnt_results: false
 cleanup_results: false
 wandb: true

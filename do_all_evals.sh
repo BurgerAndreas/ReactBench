@@ -37,6 +37,9 @@ uv run scripts/speed_comparison.py --dataset RGD1.lmdb --max_samples_per_n 10 --
 cd ../ReactBench
 uv run ReactBench/main.py config.yaml --calc=equiformer --hessian_method=autograd --redo_all=True --config_path=null
 uv run ReactBench/main.py config.yaml --calc=equiformer --ckpt_path=$HPCKPT --hessian_method=predict --redo_all=True
+uv run ReactBench/main.py config.yaml --calc=leftnet --hessian_method=autograd --config_path=null --ckpt_path=/ssd/Code/ReactBench/ckpt/horm/left.ckpt --only_cnt_results=True  #--redo_all=True
+uv run ReactBench/main.py config.yaml --calc=leftnet-d --hessian_method=autograd --config_path=null --ckpt_path=/ssd/Code/ReactBench/ckpt/horm/left-df.ckpt --only_cnt_results=True  #--redo_all=True
+# # uv run ReactBench/main.py config.yaml --calc=mace-finetuned --hessian_method=autograd 
 
 # plot
 
