@@ -401,6 +401,7 @@ class PysisEquiformer(PysisCalculator):
         ckpt_path=None,
         config_path=None,
         hessian_method="autograd",
+        clean_after=True,
         **kwargs,
     ):
         """MLFF calculator.
@@ -418,7 +419,7 @@ class PysisEquiformer(PysisCalculator):
         quiet : bool, optional
             Suppress creation of log files.
         """
-        super().__init__(**kwargs)
+        super().__init__(clean_after=clean_after, **kwargs)
 
         if not equiformer_available:
             raise ImportError(
@@ -430,6 +431,7 @@ class PysisEquiformer(PysisCalculator):
             "device": device,
             "config_path": config_path,
             "hessian_method": hessian_method,
+            "clean_after": clean_after,
             **kwargs,
         }
         print(f"{__file__} {self.__class__.__name__} got args: \n{_args}")
