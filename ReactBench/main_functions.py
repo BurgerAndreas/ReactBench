@@ -83,6 +83,9 @@ def analyze_outputs(
         # check job status
         job_success = False
         errmsg = None
+        if irc_job is None or irc_job is False:
+            continue
+
         rxn_ind = irc_job.jobname
         try:
             E, G1, G2, TSG, barrier1, barrier2, TSE = irc_job.analyze_IRC()
