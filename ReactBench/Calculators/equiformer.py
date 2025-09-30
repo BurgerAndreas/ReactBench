@@ -3,7 +3,7 @@ import torch
 import yaml
 from typing import Optional
 import sys
-from typing import Callable, Literal, Optional, Tuple
+from typing import Callable, Literal, Optional, Tuple, List
 import numpy as np
 from numpy.typing import NDArray
 
@@ -131,7 +131,7 @@ class EquiformerCalculator(ASECalculator):
         super().reset()
 
     def calculate(
-        self, atoms=None, properties=None, system_changes=None, hessian_method=None
+        self, atoms: Atoms=None, properties: List[str]=None, system_changes=None, hessian_method: str=None
     ):
         """
         Calculate properties for the given atoms.
@@ -489,6 +489,7 @@ class PysisEquiformer(PysisCalculator):
     def reset(self):
         # this is where all the calculated properties are stored
         self.results = {}
+        self.last_coords = None
         self.cnt_energy = 0
         self.cnt_forces = 0
         self.cnt_hessian_autograd = 0
@@ -496,8 +497,8 @@ class PysisEquiformer(PysisCalculator):
         self.cnt_hessian_num = 0
         super().reset()
 
-    def prepare_batch(self, atoms, coords, with_grad=False):
-        # Convert ASE atoms to torch_geometric format
+    def prepare_batch(self, atoms: List[str], coords: NDArray[float], with_grad=False):
+        # Convert lists atoms to torch_geometric format
         # str symbols -> int z
         N = len(atoms)
         z = [SYMBOL_TO_Z[a] for a in atoms]
@@ -515,7 +516,7 @@ class PysisEquiformer(PysisCalculator):
         batch = compute_extra_props(batch)
         return batch
 
-    def store_and_track(self, results, func, atoms, coords):
+    def store_and_track(self, results, func, atoms: List[str], coords: NDArray[float]):
         prepare_kwargs = {}
         if self.track:
             self.store_overlap_data(atoms, coords)
@@ -524,30 +525,9 @@ class PysisEquiformer(PysisCalculator):
                 results = func(atoms, coords, **prepare_kwargs)
         return results
 
-    def get_energy(self, atoms, coords):
-        batch = self.prepare_batch(atoms, coords)
-        energy, forces, _ = self.potential.forward(batch)
-        self.cnt_energy += 1
-        return {
-            "energy": energy.item() / AU2EV,
-            "forces": forces.detach().cpu().numpy().reshape(-1) / AU2EV * BOHR2ANG,
-        }
-
-    def get_forces(self, atoms, coords):
-        batch = self.prepare_batch(atoms, coords)
-        energy, forces, _ = self.potential.forward(batch)
-        self.cnt_forces += 1
-        return {
-            "energy": energy.item() / AU2EV,
-            "forces": forces.detach().cpu().numpy().reshape(-1) / AU2EV * BOHR2ANG,
-        }
-
-    def get_hessian(
-        self, atoms: list[str], coords: NDArray[float], hessian_method=None, **kwargs
-    ):
-        if hessian_method is None:
-            hessian_method = self.hessian_method
-        with_grad = hessian_method == "autograd"
+    def run_prediction(self, atoms: List[str], coords: NDArray[float]):
+        hessian_method = self.hessian_method
+        with_grad = (hessian_method == "autograd")
 
         batch = self.prepare_batch(atoms, coords, with_grad)
 
@@ -586,14 +566,47 @@ class PysisEquiformer(PysisCalculator):
         hessian = hessian.reshape(N * 3, N * 3)
         hessian = hessian / AU2EV * BOHR2ANG * BOHR2ANG
 
-        results = {
+        self.results = {
             "energy": energy,
             "forces": forces,
             "hessian": hessian,
         }
-        return results
 
-    def get_num_hessian(self, atoms, coords, **prepare_kwargs):
+    def update_results(self, atoms: List[str], coords: NDArray[float]):
+        try:
+            assert np.allclose(coords, self.last_coords)
+        except:
+            pass
+            self.last_coords = coords
+            self.run_prediction(atoms, coords)
+
+    def get_energy(self, atoms: List[str], coords: NDArray[float]):
+        self.update_results(atoms, coords)
+        self.cnt_energy += 1
+        return {
+            "energy": self.results["energy"],
+            "forces": self.results["forces"],
+        }
+
+    def get_forces(self, atoms: List[str], coords):
+        self.update_results(atoms, coords)
+        self.cnt_forces += 1
+        return {
+            "energy": self.results["energy"],
+            "forces": self.results["forces"],
+        }
+
+    def get_hessian(
+        self, atoms: List[str], coords: NDArray[float]
+    ):
+        self.update_results(atoms, coords)
+        return {
+            "energy": self.results["energy"],
+            "forces": self.results["forces"],
+            "hessian": self.results["hessian"],
+        }
+
+    def get_num_hessian(self, atoms: List[str], coords: NDArray[float], **prepare_kwargs):
         """
         geom.calculator.get_num_hessian(geom.atoms, geom._coords)
         """
@@ -625,7 +638,7 @@ class PysisEquiformer(PysisCalculator):
         results["hessian"] = fd_hessian
         return results
 
-    def run_calculation(self, atoms, coords):
+    def run_calculation(self, atoms: List[str], coords: NDArray[float]):
         return self.get_energy(atoms, coords)
 
     def __str__(self):
